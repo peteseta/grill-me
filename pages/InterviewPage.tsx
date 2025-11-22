@@ -58,6 +58,12 @@ export const InterviewPage: React.FC = () => {
         // Ideally, we should have a "Start Interview" button if auto-start fails.
         // For now, let's attempt auto-start.
         const start = async () => {
+            // Prevent WebSocket errors if Agent ID is not configured
+            if (ELEVENLABS_AGENT_ID === 'replace-with-your-agent-id') {
+              console.warn("ElevenLabs Agent ID is not configured. Skipping connection.");
+              return;
+            }
+
             try {
                 // Request mic permission first explicitly if needed, but startSession does it.
                 await conversation.startSession({
