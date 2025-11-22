@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Phone, Pause, Play, Square, LifeBuoy, AlertTriangle, Activity, Radio } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { ELEVENLABS_AGENT_ID } from '../constants';
+import { ELEVENLABS_AGENT_ID, API_BASE_URL } from '../constants';
 import { TranscriptMessage, Speaker, SessionStatus } from '../types';
 import { useConversation } from '@elevenlabs/react';
 
@@ -13,33 +13,90 @@ export const InterviewPage: React.FC = () => {
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [showLifeline, setShowLifeline] = useState(false);
+  const [lifelineAdvice, setLifelineAdvice] = useState<any>(null);
+  const [lifelineLoading, setLifelineLoading] = useState(false);
   const [volumeData, setVolumeData] = useState<number[]>(new Array(12).fill(4));
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const conversation = useConversation({
     micMuted: isMuted,
-    onConnect: () => {
+    onConnect: async () => {
       setStatus(SessionStatus.IN_PROGRESS);
+      // Update session status in backend
+      if (sessionId) {
+        try {
+          await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'in_progress' })
+          });
+        } catch (err) {
+          console.error('Failed to update session status:', err);
+        }
+      }
     },
     onDisconnect: () => {
       setStatus(SessionStatus.COMPLETED);
     },
-    onMessage: (props: { message: string, source: string }) => {
+    onMessage: async (props: { message: string, source: string }) => {
         // The docs say "message" and "source".
         // source: "user" | "ai"
+        const speaker = props.source === 'user' ? Speaker.CANDIDATE : Speaker.INTERVIEWER;
         const newMsg: TranscriptMessage = {
             id: Date.now().toString() + Math.random(),
-            speaker: props.source === 'user' ? Speaker.CANDIDATE : Speaker.INTERVIEWER,
+            speaker: speaker,
             content: props.message,
             timestamp: Date.now()
         };
         setTranscript(prev => [...prev, newMsg]);
+
+        // Send transcript message to backend
+        if (sessionId) {
+          try {
+            await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/transcript`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                speaker: speaker.toLowerCase(),
+                content: props.message
+              })
+            });
+          } catch (err) {
+            console.error('Failed to save transcript message:', err);
+          }
+        }
     },
     onError: (error: string) => {
         console.error("Conversation error:", error);
         // Optionally handle error state
     }
   });
+
+  // Fetch session data on mount
+  useEffect(() => {
+    const fetchSession = async () => {
+      if (!sessionId) {
+        console.error('No session ID provided');
+        navigate('/');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`);
+        if (!response.ok) {
+          throw new Error('Session not found');
+        }
+        const sessionData = await response.json();
+        console.log('Session loaded:', sessionData);
+      } catch (err) {
+        console.error('Failed to load session:', err);
+        // Could show error message or redirect
+        // For now, we'll allow the session to continue since ElevenLabs handles the interview
+      }
+    };
+
+    fetchSession();
+  }, [sessionId, navigate]);
 
   // Start session on mount
   useEffect(() => {
@@ -134,29 +191,61 @@ export const InterviewPage: React.FC = () => {
     if (window.confirm("Are you sure you want to end the interview? Analysis will be generated.")) {
       await conversation.endSession();
       setStatus(SessionStatus.COMPLETED);
+
+      // Update backend session status
+      if (sessionId) {
+        try {
+          await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'completed' })
+          });
+        } catch (err) {
+          console.error('Failed to update session status:', err);
+        }
+      }
+
       navigate(`/results/${sessionId}`);
     }
   };
 
-  const handleLifeline = () => {
-    // Pause the conversation?
-    // If I pause, I might want to mute mic?
-    // setStatus(SessionStatus.PAUSED);
-    // setShowLifeline(true);
-
-    // The previous code set status to paused.
-    // Here, maybe we can mute the mic so the user can talk to the "Lifeline" (if it was voice) or just think.
-    // "Lifeline" seems to be a modal.
-
+  const handleLifeline = async () => {
     setIsMuted(true);
     setShowLifeline(true);
-    // setStatus(SessionStatus.PAUSED); // This is just UI state in my component
+    setLifelineLoading(true);
+    setLifelineAdvice(null);
+
+    if (!sessionId) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/lifeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get lifeline advice');
+      }
+
+      const data = await response.json();
+      setLifelineAdvice(data.advice);
+    } catch (err) {
+      console.error('Error fetching lifeline advice:', err);
+      // Set fallback advice
+      setLifelineAdvice({
+        subtext: "Unable to generate real-time advice. Please check your connection.",
+        strategy: ["Review your previous answers", "Take a deep breath and stay focused"],
+        avoid: ["Panicking", "Rushing your response"]
+      });
+    } finally {
+      setLifelineLoading(false);
+    }
   };
 
   const closeLifeline = () => {
     setShowLifeline(false);
     setIsMuted(false);
-    // setStatus(SessionStatus.IN_PROGRESS);
+    setLifelineAdvice(null);
   };
 
   const togglePause = async () => {
@@ -329,31 +418,54 @@ export const InterviewPage: React.FC = () => {
             
             <div className="bg-slate-800/50 rounded-2xl p-6 mb-8 border border-white/10 relative overflow-hidden">
               <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-yellow-500 to-orange-500"></div>
-              
-              <div className="grid gap-6">
-                <div>
-                  <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Detected Subtext</h3>
-                  <p className="text-slate-200 leading-relaxed">The interviewer is testing your depth of knowledge on <span className="text-white font-semibold">State Management</span>. They suspect you may have only used Redux boilerplate without understanding the "why".</p>
-                </div>
 
-                <div>
-                  <h3 className="text-xs font-bold text-green-500 uppercase tracking-widest mb-3">Strategic Pivot</h3>
-                  <ul className="space-y-3">
-                    <li className="flex gap-3 items-start">
-                      <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-green-500 text-xs">✓</span>
-                      </div>
-                      <span className="text-slate-300 text-sm">Compare Redux vs. Context API vs. Zustand.</span>
-                    </li>
-                    <li className="flex gap-3 items-start">
-                      <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-green-500 text-xs">✓</span>
-                      </div>
-                      <span className="text-slate-300 text-sm">Mention a specific trade-off you made (e.g., "We chose Zustand to avoid boilerplate in a small dashboard").</span>
-                    </li>
-                  </ul>
+              {lifelineLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+                  <p className="ml-4 text-slate-400">Generating strategic advice...</p>
                 </div>
-              </div>
+              ) : lifelineAdvice ? (
+                <div className="grid gap-6">
+                  <div>
+                    <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Detected Subtext</h3>
+                    <p className="text-slate-200 leading-relaxed">{lifelineAdvice.subtext}</p>
+                  </div>
+
+                  {lifelineAdvice.strategy && lifelineAdvice.strategy.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-green-500 uppercase tracking-widest mb-3">Strategic Pivot</h3>
+                      <ul className="space-y-3">
+                        {lifelineAdvice.strategy.map((point: string, idx: number) => (
+                          <li key={idx} className="flex gap-3 items-start">
+                            <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                              <span className="text-green-500 text-xs">✓</span>
+                            </div>
+                            <span className="text-slate-300 text-sm">{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {lifelineAdvice.avoid && lifelineAdvice.avoid.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-red-500 uppercase tracking-widest mb-3">What to Avoid</h3>
+                      <ul className="space-y-2">
+                        {lifelineAdvice.avoid.map((point: string, idx: number) => (
+                          <li key={idx} className="flex gap-3 items-start">
+                            <div className="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                              <span className="text-red-500 text-xs">✗</span>
+                            </div>
+                            <span className="text-slate-300 text-sm">{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-center py-6">Loading advice...</p>
+              )}
             </div>
 
             <Button onClick={closeLifeline} className="w-full py-4 text-lg shadow-xl shadow-violet-900/20" variant="primary">

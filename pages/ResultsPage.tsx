@@ -1,10 +1,80 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Trophy, Target, MessageSquare, RefreshCw, Download, ChevronDown, Share2, Zap } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { API_BASE_URL } from '../constants';
 
 export const ResultsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { sessionId } = useParams();
+  const [feedback, setFeedback] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAnalysis = async () => {
+      if (!sessionId) {
+        setError('No session ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // First check if feedback already exists
+        let response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/feedback`);
+
+        if (response.status === 404) {
+          // Feedback doesn't exist, generate it
+          console.log('Generating analysis...');
+          response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch analysis');
+        }
+
+        const data = await response.json();
+        setFeedback(data);
+      } catch (err) {
+        console.error('Error fetching analysis:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load results');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalysis();
+  }, [sessionId]);
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-10 pb-16 animate-fade-in">
+        <div className="flex flex-col items-center justify-center py-32">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mb-4"></div>
+          <p className="text-slate-400 text-lg">Analyzing your interview performance...</p>
+          <p className="text-slate-500 text-sm mt-2">This may take a few moments</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !feedback) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-10 pb-16 animate-fade-in">
+        <div className="glass-card rounded-3xl p-12 text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Unable to Load Results</h2>
+          <p className="text-slate-400 mb-8">{error || 'No feedback available'}</p>
+          <Button onClick={() => navigate('/')} variant="glow">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Start New Session
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 pb-16 animate-fade-in">
@@ -14,7 +84,7 @@ export const ResultsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <span className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-wider">Analysis Complete</span>
-            <span className="text-slate-500 text-sm">Session ID: #8X29-Q</span>
+            <span className="text-slate-500 text-sm">Session ID: {sessionId?.substring(0, 8)}</span>
           </div>
           <h1 className="text-4xl font-display font-bold text-white">Performance Report</h1>
         </div>
@@ -41,12 +111,12 @@ export const ResultsPage: React.FC = () => {
           
           <h3 className="text-violet-300 font-bold text-sm uppercase tracking-widest mb-4">Overall Score</h3>
           <div className="flex items-baseline gap-2">
-            <div className="text-7xl font-display font-bold text-white text-glow">7.5</div>
+            <div className="text-7xl font-display font-bold text-white text-glow">{feedback.overall_score || 0}</div>
             <span className="text-2xl text-slate-500 font-light">/10</span>
           </div>
           <div className="mt-4 flex items-center gap-2 text-sm font-medium text-green-400 bg-green-500/10 w-fit px-3 py-1 rounded-full border border-green-500/20">
             <Zap className="w-3 h-3 fill-current" />
-            Top 15% of candidates
+            {feedback.overall_score >= 8 ? 'Top 10% of candidates' : feedback.overall_score >= 6 ? 'Above average' : 'Room for improvement'}
           </div>
         </div>
 
@@ -59,9 +129,13 @@ export const ResultsPage: React.FC = () => {
 
           <h3 className="text-red-300 font-bold text-sm uppercase tracking-widest mb-4">Bullshit Meter</h3>
           <div className="flex items-baseline gap-2">
-            <div className="text-7xl font-display font-bold text-white">12<span className="text-4xl">%</span></div>
+            <div className="text-7xl font-display font-bold text-white">{feedback.bullshit_meter || 0}<span className="text-4xl">%</span></div>
           </div>
-          <p className="text-sm text-slate-400 mt-4">Low detection rate. Responses appeared genuine and grounded in fact.</p>
+          <p className="text-sm text-slate-400 mt-4">
+            {feedback.bullshit_meter < 25 ? 'Low detection rate. Responses appeared genuine and grounded in fact.' :
+             feedback.bullshit_meter < 50 ? 'Moderate. Some answers lacked concrete evidence.' :
+             'High detection. Focus on providing specific examples and facts.'}
+          </p>
         </div>
 
         {/* Waffle Score */}
@@ -73,9 +147,13 @@ export const ResultsPage: React.FC = () => {
 
           <h3 className="text-yellow-300 font-bold text-sm uppercase tracking-widest mb-4">Waffle Score</h3>
           <div className="flex items-baseline gap-2">
-            <div className="text-7xl font-display font-bold text-white">45<span className="text-4xl">%</span></div>
+            <div className="text-7xl font-display font-bold text-white">{feedback.waffle_score || 0}<span className="text-4xl">%</span></div>
           </div>
-          <p className="text-sm text-yellow-500 mt-4 font-medium">Warning: Responses lacked conciseness.</p>
+          <p className={`text-sm mt-4 font-medium ${feedback.waffle_score > 50 ? 'text-yellow-500' : 'text-slate-400'}`}>
+            {feedback.waffle_score > 50 ? 'Warning: Responses lacked conciseness.' :
+             feedback.waffle_score > 25 ? 'Moderate rambling detected.' :
+             'Good! Your responses were clear and concise.'}
+          </p>
         </div>
       </div>
 
@@ -89,7 +167,7 @@ export const ResultsPage: React.FC = () => {
               Executive Summary
             </h2>
             <p className="text-slate-300 leading-8 text-lg mb-8 font-light">
-              You demonstrated strong technical knowledge regarding React architecture and modern hooks. However, your answers regarding system design were slightly unstructured. You tended to over-explain simple concepts (high waffle score) which might lose the interviewer's attention.
+              {feedback.summary || 'Interview analysis complete.'}
             </p>
             
             <div className="grid md:grid-cols-2 gap-8">
@@ -99,14 +177,18 @@ export const ResultsPage: React.FC = () => {
                   Core Strengths
                 </h3>
                 <ul className="space-y-4">
-                  {['React ecosystem depth', 'Honesty about knowledge gaps', 'Communication tone'].map((item, i) => (
-                    <li key={i} className="flex gap-3 text-slate-300">
-                      <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
-                        <span className="text-green-500 text-xs">✓</span>
-                      </div>
-                      {item}
-                    </li>
-                  ))}
+                  {(feedback.strengths || []).length > 0 ? (
+                    feedback.strengths.map((item: string, i: number) => (
+                      <li key={i} className="flex gap-3 text-slate-300">
+                        <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
+                          <span className="text-green-500 text-xs">✓</span>
+                        </div>
+                        {item}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-slate-500 italic">No strengths identified</li>
+                  )}
                 </ul>
               </div>
               <div className="bg-slate-900/50 rounded-2xl p-6 border border-red-500/10">
@@ -115,14 +197,18 @@ export const ResultsPage: React.FC = () => {
                   Areas for Growth
                 </h3>
                 <ul className="space-y-4">
-                  {['Conciseness (Waffle score)', 'System Design structure', 'Specific metrics in examples'].map((item, i) => (
-                    <li key={i} className="flex gap-3 text-slate-300">
-                      <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
-                        <span className="text-red-500 text-xs">!</span>
-                      </div>
-                      {item}
-                    </li>
-                  ))}
+                  {(feedback.weaknesses || []).length > 0 ? (
+                    feedback.weaknesses.map((item: string, i: number) => (
+                      <li key={i} className="flex gap-3 text-slate-300">
+                        <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+                          <span className="text-red-500 text-xs">!</span>
+                        </div>
+                        {item}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-slate-500 italic">No weaknesses identified</li>
+                  )}
                 </ul>
               </div>
             </div>

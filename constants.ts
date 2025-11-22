@@ -2,6 +2,9 @@ import { InterviewType } from './types';
 
 export const APP_NAME = "Mock Interviewer AI";
 
+// Backend API Configuration
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 // TODO: Replace with your actual ElevenLabs Agent ID
 export const ELEVENLABS_AGENT_ID = "replace-with-your-agent-id";
 
