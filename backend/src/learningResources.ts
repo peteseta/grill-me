@@ -106,7 +106,7 @@ export const LEARNING_RESOURCES: TopicResources[] = [
             },
             {
                 title: 'Array Data Structure - GeeksforGeeks',
-                url: 'https://www.geeksforgeforgeeks.org/array-data-structure/',
+                url: 'https://www.geeksforgeeks.org/array-data-structure/',
                 type: 'article',
                 description: 'Array fundamentals'
             }
