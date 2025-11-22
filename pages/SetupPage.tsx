@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Briefcase, ChevronRight, AlertCircle, Wand2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { DEFAULT_JOB_DESCRIPTION, INTERVIEW_TYPES } from '../constants';
+import { DEFAULT_JOB_DESCRIPTION, INTERVIEW_TYPES, API_BASE_URL } from '../constants';
 import { InterviewType } from '../types';
 
 export const SetupPage: React.FC = () => {
@@ -12,6 +12,7 @@ export const SetupPage: React.FC = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [interviewType, setInterviewType] = useState<InterviewType>(InterviewType.BOTH);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -23,11 +24,40 @@ export const SetupPage: React.FC = () => {
     if (!roleTitle || !resumeFile) return;
 
     setIsAnalyzing(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('resume_file', resumeFile);
+      formData.append('job_description', jobDescription);
+      formData.append('role_title', roleTitle);
+      formData.append('interview_type', interviewType);
+
+      // Call backend API
+      const response = await fetch(`${API_BASE_URL}/api/sessions/create`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create session');
+      }
+
+      const data = await response.json();
+      console.log('Session created:', data.session_id);
+      console.log('Attack plan generated:', data.attack_plan);
+
+      // Navigate to interview page with real session ID
+      navigate(`/interview/${data.session_id}`);
+
+    } catch (err) {
+      console.error('Error creating session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create session. Please try again.');
+    } finally {
       setIsAnalyzing(false);
-      navigate('/interview/session-123');
-    }, 2500);
+    }
   };
 
   return (
@@ -149,10 +179,20 @@ export const SetupPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>{error}</div>
+            </div>
+          </div>
+        )}
+
         {/* Action */}
         <div className="pt-6">
-          <Button 
-            onClick={handleStartSession} 
+          <Button
+            onClick={handleStartSession}
             disabled={!roleTitle || !resumeFile}
             isLoading={isAnalyzing}
             size="lg"
