@@ -104,43 +104,36 @@ async function parseJobDescription(jdInput: string): Promise<string> {
 
 // --- Attack Plan Generation ---
 
-async function generateAttackPlan(resumeText: string, jdText: string) {
+async function generateAttackPlan(resumeText: string, jdText: string, roleTitle: string, companyName: string) {
     if (!process.env.OPENAI_API_KEY) {
         throw new Error("OpenAI API Key not found");
     }
 
     const systemPrompt = `
-    You are an expert technical interviewer. Your goal is to create a "Attack Plan" for an upcoming interview.
-    You will be given a candidate's resume and a job description.
+You are the "Director of Interview Strategy," a ruthlessly efficient Technical Recruiter and Behavioral Psychologist.
 
-    Analyze them to identify:
-    1. Weak points or gaps in the resume compared to the JD.
-    2. Areas where the candidate claims expertise but lacks evidence (the "angle").
-    3. Key technical topics to probe depth.
-    4. Behavioral themes relevant to the role.
+Your goal is to analyze a candidate's Resume against a Job Description and generate a structured "Attack Plan" that a Voice AI Agent will use to interview the candidate.
 
-    Output the plan in valid JSON format matching the following structure:
-    {
-        "focus_areas": [
-            {
-                "area": "string",
-                "angle": "string",
-                "probing_questions": ["string"]
-            }
-        ],
-        "technical_depth": ["string"],
-        "behavioral_themes": ["string"],
-        "difficulty_progression": "gradual" | "aggressive"
-    }
-    `;
+OBJECTIVES:
+1.  **Find the Gaps:** Identify where the resume fails to meet the JD requirements (e.g., "Resume lists Python but JD requires Java").
+2.  **Detect the Fluff:** Locate vague metrics (e.g., "Increased productivity") or buzzword stuffing without substance.
+3.  **Test the Logic:** Find projects that seem technically sound but business-foolish (e.g., "Built a custom framework for a simple landing page").
+4.  **Cultural Fit:** Identify if the candidate's background (e.g., Freelance/Solo) conflicts with the role (e.g., Enterprise Teamwork).
+
+RULES FOR CONTENT:
+1.  **No Generic Questions:** Do not ask "Tell me about a time you failed." Instead, ask "You mentioned Project X failed to scale. Walk me through the specific week you realized the architecture was wrong."
+2.  **Be Specific:** Quote the resume back to them. "You claim 94% GPA..." or "You used SvelteKit for..."
+3.  **Trap the Resume Padding:** If they list a skill like "Kubernetes" but show no projects using it, create a Focus Area to test that specific skill depth.
+4.  **Probing Questions:** These must be written in spoken English, ready for the Voice Agent to read aloud. Keep them under 20 words each where possible.
+`;
 
     const userPrompt = `
-    Resume Content:
-    ${resumeText.substring(0, 10000)}
-
-    Job Description:
-    ${jdText.substring(0, 5000)}
-    `;
+INPUT DATA:
+- Role Title: ${roleTitle}
+- Company: ${companyName} (Infer culture: e.g., Microsoft=Scale, Startup=Speed)
+- Resume Text: ${resumeText.substring(0, 15000)}
+- Job Description: ${jdText.substring(0, 10000)}
+`;
 
     try {
         const completion = await openai.chat.completions.create({
@@ -149,7 +142,47 @@ async function generateAttackPlan(resumeText: string, jdText: string) {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
             ],
-            response_format: { type: "json_object" }
+            response_format: {
+                type: "json_schema",
+                json_schema: {
+                    name: "attack_plan",
+                    schema: {
+                        type: "object",
+                        properties: {
+                            candidate_name: { type: "string", description: "Extracted Name" },
+                            role_title: { type: "string", description: "Target Role" },
+                            difficulty_progression: { type: "string", enum: ["gradual", "aggressive"] },
+                            overall_strategy: { type: "string", description: "1-2 sentences describing the persona the interviewer should adopt." },
+                            focus_areas: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        area: { type: "string", description: "Category Name (e.g., Technical Depth, Product Sense, Leadership)" },
+                                        topic: { type: "string", description: "Specific Resume Item (e.g., The 'Mango' Project)" },
+                                        context: { type: "string", description: "Internal note for the AI: Why are we asking this?" },
+                                        angle: { type: "string", description: "The specific doubt or skepticism to explore" },
+                                        probing_questions: {
+                                            type: "array",
+                                            items: { type: "string" },
+                                            description: "3-4 distinct questions. Direct, conversational, follow-up, trap."
+                                        }
+                                    },
+                                    required: ["area", "topic", "context", "angle", "probing_questions"],
+                                    additionalProperties: false
+                                }
+                            },
+                            behavioral_themes: {
+                                type: "array",
+                                items: { type: "string" }
+                            }
+                        },
+                        required: ["candidate_name", "role_title", "difficulty_progression", "overall_strategy", "focus_areas", "behavioral_themes"],
+                        additionalProperties: false
+                    },
+                    strict: true
+                }
+            }
         });
 
         const content = completion.choices[0].message.content;
@@ -175,6 +208,7 @@ app.post('/api/sessions/create', upload.single('resume_file'), async (req: Reque
         const resumeFile = req.file;
         const jobDescription = req.body.job_description;
         const roleTitle = req.body.role_title;
+        const companyName = req.body.company_name || "Unknown Company";
         // const interviewType = req.body.interview_type;
 
         if (!resumeFile) {
@@ -194,7 +228,7 @@ app.post('/api/sessions/create', upload.single('resume_file'), async (req: Reque
         const jdText = await parseJobDescription(jobDescription);
 
         // 3. Generate Attack Plan
-        const attackPlan = await generateAttackPlan(resumeText, jdText);
+        const attackPlan = await generateAttackPlan(resumeText, jdText, roleTitle, companyName);
 
         // 4. Generate Session ID
         const sessionId = crypto.randomUUID();
