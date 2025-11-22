@@ -5,8 +5,9 @@ export const APP_NAME = "Mock Interviewer AI";
 // Backend API Configuration
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-// TODO: Replace with your actual ElevenLabs Agent ID
-export const ELEVENLABS_AGENT_ID = "agent_5601kaphkp22fq6b45w9qbszetfm";
+// ElevenLabs Agent ID for voice interviews
+// Set VITE_ELEVENLABS_AGENT_ID in your .env file or use the default
+export const ELEVENLABS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID || "agent_5601kaphkp22fq6b45w9qbszetfm";
 
 export const DEFAULT_JOB_DESCRIPTION = `We are looking for a Senior React Engineer to join our team. 
 The ideal candidate should have experience with:
