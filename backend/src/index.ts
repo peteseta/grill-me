@@ -6,8 +6,6 @@ import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import * as cheerio from 'cheerio';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import { findResourcesForTopic, LearningResource } from './learningResources';
 
@@ -55,11 +53,10 @@ const upload = multer({
 // Initialize OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL,
+    baseURL: process.env.OPENAI_BASE_URL
 });
 
 // --- Helper Functions ---
-
 async function parseResume(buffer: Buffer, mimetype: string): Promise<string> {
     if (mimetype === 'application/pdf') {
         const data = await pdf(buffer);
@@ -202,6 +199,33 @@ INPUT DATA:
 
 app.get('/health', (req: Request, res: Response) => {
     res.json({ status: 'ok' });
+});
+
+// Test OpenAI connection
+app.get('/test-openai', async (req: Request, res: Response) => {
+    try {
+        console.log('Testing OpenAI connection...');
+        console.log('API Key exists:', !!process.env.OPENAI_API_KEY);
+        console.log('Base URL:', process.env.OPENAI_BASE_URL);
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{ role: "user", content: "Say hello!" }],
+            max_tokens: 10
+        });
+
+        res.json({
+            success: true,
+            response: completion.choices[0].message.content
+        });
+    } catch (error: any) {
+        console.error('OpenAI test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            details: error
+        });
+    }
 });
 
 app.post('/api/sessions/create', upload.single('resume_file'), async (req: Request, res: Response) => {
