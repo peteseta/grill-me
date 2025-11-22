@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trophy, Target, MessageSquare, RefreshCw, Download, ChevronDown, Share2, Zap } from 'lucide-react';
+import { Trophy, Target, MessageSquare, RefreshCw, Download, ChevronDown, Share2, Zap, ExternalLink, Youtube, BookOpen, FileText, GraduationCap } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { API_BASE_URL } from '../constants';
+
+interface LearningResource {
+  title: string;
+  url: string;
+  type: 'youtube' | 'article' | 'course' | 'documentation';
+  description?: string;
+}
+
+interface Recommendation {
+  topic: string;
+  resources: LearningResource[];
+}
 
 export const ResultsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +22,8 @@ export const ResultsPage: React.FC = () => {
   const [feedback, setFeedback] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -38,11 +52,33 @@ export const ResultsPage: React.FC = () => {
 
         const data = await response.json();
         setFeedback(data);
+        
+        // Fetch recommendations after feedback is loaded
+        fetchRecommendations();
       } catch (err) {
         console.error('Error fetching analysis:', err);
         setError(err instanceof Error ? err.message : 'Failed to load results');
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchRecommendations = async () => {
+      if (!sessionId) return;
+      
+      setRecommendationsLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/recommendations`);
+        if (response.ok) {
+          const data = await response.json();
+          setRecommendations(data.recommendations || []);
+        } else {
+          console.error('Failed to fetch recommendations');
+        }
+      } catch (err) {
+        console.error('Error fetching recommendations:', err);
+      } finally {
+        setRecommendationsLoading(false);
       }
     };
 
@@ -247,23 +283,86 @@ export const ResultsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Plan Sidebar */}
+        {/* Learning Recommendations Sidebar */}
         <div className="space-y-6">
           <div className="glass-card rounded-3xl p-8 sticky top-24">
-            <h3 className="text-lg font-display font-bold text-white mb-6">Recommended Actions</h3>
-            <div className="space-y-4">
-              <div className="p-5 bg-slate-900/80 rounded-xl border border-white/5 hover:border-violet-500/50 transition-colors group">
-                <h4 className="text-white font-medium mb-2 group-hover:text-violet-400 transition-colors">Practice STAR Method</h4>
-                <p className="text-sm text-slate-400 leading-relaxed">Your behavioral answers lacked structure. Focus on Situation, Task, Action, Result.</p>
+            <h3 className="text-lg font-display font-bold text-white mb-2 flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-violet-400" />
+              Learning Resources
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">Recommended videos and articles based on your feedback</p>
+            
+            {recommendationsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-violet-500"></div>
+                <p className="ml-3 text-slate-400 text-sm">Loading recommendations...</p>
               </div>
-              <div className="p-5 bg-slate-900/80 rounded-xl border border-white/5 hover:border-violet-500/50 transition-colors group">
-                <h4 className="text-white font-medium mb-2 group-hover:text-violet-400 transition-colors">System Design Review</h4>
-                <p className="text-sm text-slate-400 leading-relaxed">Review scalable architecture patterns for frontend applications.</p>
+            ) : recommendations.length > 0 ? (
+              <div className="space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto scrollbar-hide">
+                {recommendations.map((rec, idx) => (
+                  <div key={idx} className="border-l-4 border-violet-500/50 bg-slate-900/50 rounded-r-xl p-5">
+                    <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider text-violet-300">
+                      {rec.topic}
+                    </h4>
+                    <div className="space-y-3">
+                      {rec.resources.map((resource, resIdx) => {
+                        const getIcon = () => {
+                          switch (resource.type) {
+                            case 'youtube':
+                              return <Youtube className="w-4 h-4 text-red-500" />;
+                            case 'article':
+                              return <FileText className="w-4 h-4 text-blue-400" />;
+                            case 'course':
+                              return <GraduationCap className="w-4 h-4 text-green-400" />;
+                            case 'documentation':
+                              return <BookOpen className="w-4 h-4 text-purple-400" />;
+                            default:
+                              return <ExternalLink className="w-4 h-4 text-slate-400" />;
+                          }
+                        };
+
+                        return (
+                          <a
+                            key={resIdx}
+                            href={resource.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-3 bg-slate-800/50 rounded-lg border border-white/5 hover:border-violet-500/50 hover:bg-slate-800 transition-all group"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="mt-0.5 shrink-0">
+                                {getIcon()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-white text-sm font-medium group-hover:text-violet-400 transition-colors line-clamp-1">
+                                    {resource.title}
+                                  </h5>
+                                  <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-violet-400 transition-colors shrink-0" />
+                                </div>
+                                {resource.description && (
+                                  <p className="text-xs text-slate-400 line-clamp-2">
+                                    {resource.description}
+                                  </p>
+                                )}
+                                <span className="inline-block mt-1 text-xs text-slate-500 uppercase tracking-wider">
+                                  {resource.type}
+                                </span>
+                              </div>
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-            <Button className="w-full mt-8 py-4" variant="glow">
-               Generate Study Guide
-            </Button>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-slate-400 text-sm">No recommendations available yet</p>
+              </div>
+            )}
+            
             <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between text-slate-500 text-sm">
               <span>Share results</span>
               <button className="hover:text-white transition-colors"><Share2 className="w-5 h-5" /></button>

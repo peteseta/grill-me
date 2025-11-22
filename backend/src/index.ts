@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { findResourcesForTopic, LearningResource } from './learningResources';
 
 dotenv.config();
 
@@ -487,6 +488,165 @@ app.get('/api/sessions/:sessionId/feedback', (req: Request, res: Response) => {
     }
 
     res.json(session.feedback);
+});
+
+// Get learning recommendations based on feedback
+app.get('/api/sessions/:sessionId/recommendations', async (req: Request, res: Response) => {
+    const { sessionId } = req.params;
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+        res.status(404).json({ error: 'Session not found' });
+        return;
+    }
+
+    if (!session.feedback) {
+        res.status(404).json({ error: 'Feedback not yet generated. Call /analyze first.' });
+        return;
+    }
+
+    try {
+        const feedback = session.feedback;
+        const weaknesses = feedback.weaknesses || [];
+        const detailedFeedback = feedback.detailed_feedback || {};
+
+        // Extract topics from weaknesses and detailed feedback
+        const allTopics: string[] = [...weaknesses];
+        
+        // Add topics from detailed feedback
+        if (detailedFeedback.technical) {
+            allTopics.push(detailedFeedback.technical);
+        }
+        if (detailedFeedback.communication) {
+            allTopics.push(detailedFeedback.communication);
+        }
+        if (detailedFeedback.behavioral) {
+            allTopics.push(detailedFeedback.behavioral);
+        }
+
+        // Use AI to extract topics and generate learning recommendations dynamically
+        if (process.env.OPENAI_API_KEY && weaknesses.length > 0) {
+            try {
+                const recommendationPrompt = `You are an expert at recommending learning resources for interview preparation. Analyze the interview feedback and generate specific learning recommendations.
+
+Interview Feedback:
+Weaknesses: ${weaknesses.join(', ')}
+Technical Feedback: ${detailedFeedback.technical || 'N/A'}
+Communication Feedback: ${detailedFeedback.communication || 'N/A'}
+Behavioral Feedback: ${detailedFeedback.behavioral || 'N/A'}
+
+For each area that needs improvement, identify the specific topic and recommend 2-3 high-quality learning resources (YouTube videos, articles, courses, or documentation).
+
+Return a JSON object with this structure:
+{
+  "recommendations": [
+    {
+      "topic": "specific topic name (e.g., 'Heaps Data Structure', 'STAR Method', 'System Design')",
+      "resources": [
+        {
+          "title": "Resource title",
+          "url": "Full URL",
+          "type": "youtube|article|course|documentation",
+          "description": "Brief description of what this resource covers"
+        }
+      ]
+    }
+  ]
+}
+
+Focus on:
+- Well-known, high-quality resources (NeetCode, freeCodeCamp, GeeksforGeeks, official docs, etc.)
+- Specific topics mentioned in the weaknesses
+- Mix of video and written resources
+- Resources that are actually helpful for interview prep
+
+Generate 3-5 topic recommendations with 2-3 resources each.`;
+
+                const completion = await openai.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [
+                        { 
+                            role: "system", 
+                            content: "You are an expert at recommending learning resources for technical interview preparation. Always provide real, accessible URLs for well-known educational platforms." 
+                        },
+                        { role: "user", content: recommendationPrompt }
+                    ],
+                    response_format: { type: "json_object" }
+                });
+
+                const response = completion.choices[0].message.content;
+                if (response) {
+                    const parsed = JSON.parse(response);
+                    const aiRecommendations = parsed.recommendations || [];
+                    
+                    if (Array.isArray(aiRecommendations) && aiRecommendations.length > 0) {
+                        res.json({
+                            recommendations: aiRecommendations,
+                            generated_at: Date.now()
+                        });
+                        return;
+                    }
+                }
+            } catch (aiError) {
+                console.error("Error generating AI recommendations:", aiError);
+                // Fall through to backup method
+            }
+        }
+
+        // Fallback: Use keyword matching for basic topics
+        const recommendations: { topic: string; resources: LearningResource[] }[] = [];
+        const seenTopics = new Set<string>();
+
+        for (const topic of allTopics) {
+            const topicLower = topic.toLowerCase();
+            if (seenTopics.has(topicLower)) continue;
+            seenTopics.add(topicLower);
+
+            const resources = findResourcesForTopic(topic);
+            if (resources.length > 0) {
+                recommendations.push({
+                    topic: topic,
+                    resources: resources
+                });
+            }
+        }
+
+        // If still no recommendations, provide general resources
+        if (recommendations.length === 0) {
+            recommendations.push({
+                topic: 'General Interview Prep',
+                resources: [
+                    {
+                        title: 'NeetCode YouTube Channel',
+                        url: 'https://www.youtube.com/c/NeetCode',
+                        type: 'youtube',
+                        description: 'Data structures, algorithms, and coding interview prep'
+                    },
+                    {
+                        title: 'LeetCode - Practice Problems',
+                        url: 'https://leetcode.com/',
+                        type: 'article',
+                        description: 'Practice coding interview problems'
+                    },
+                    {
+                        title: 'System Design Primer',
+                        url: 'https://github.com/donnemartin/system-design-primer',
+                        type: 'article',
+                        description: 'Comprehensive system design guide'
+                    }
+                ]
+            });
+        }
+
+        res.json({
+            recommendations: recommendations,
+            generated_at: Date.now()
+        });
+
+    } catch (error: any) {
+        console.error("Error generating recommendations:", error);
+        res.status(500).json({ error: error.message || 'Failed to generate recommendations' });
+    }
 });
 
 // Start server
