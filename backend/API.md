@@ -44,6 +44,7 @@ Check if the API server is running.
 ### `POST /api/sessions/create`
 
 Creates a new interview session by analyzing a resume against a job description.
+Returns the session id and the attack plan to be provided to the ElevenLabs agent.
 
 **Request:**
 
@@ -89,15 +90,6 @@ Content-Type: `multipart/form-data`
 - `200` - Success
 - `400` - Missing required fields (resume_file or job_description)
 - `500` - Server error (OpenAI API error, parsing error, etc.)
-
-**Example (cURL):**
-```bash
-curl -X POST http://localhost:3001/api/sessions/create \
-  -F "resume_file=@/path/to/resume.pdf" \
-  -F "job_description=Seeking a senior engineer with 5+ years..." \
-  -F "role_title=Senior Software Engineer" \
-  -F "company_name=TechCorp"
-```
 
 ---
 

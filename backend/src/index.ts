@@ -52,9 +52,9 @@ const upload = multer({
 });
 
 // Initialize OpenAI
-// In a real app, ensure process.env.OPENAI_API_KEY is set
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || "mock-key",
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
 });
 
 // --- Helper Functions ---
