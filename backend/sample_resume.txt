@@ -1,4 +1,0 @@
-This is a sample resume.
-I have 5 years of experience in TypeScript and Node.js.
-I built a scalable backend system using Express.
-Skills: TypeScript, Node.js, Express, React.
