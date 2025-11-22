@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Phone, Pause, Play, Square, LifeBuoy, AlertTriangle, Activity, Radio } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { MOCK_TRANSCRIPT } from '../constants';
+import { ELEVENLABS_AGENT_ID } from '../constants';
 import { TranscriptMessage, Speaker, SessionStatus } from '../types';
+import { useConversation } from '@elevenlabs/react';
 
 export const InterviewPage: React.FC = () => {
   const { sessionId } = useParams();
@@ -12,46 +13,160 @@ export const InterviewPage: React.FC = () => {
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [showLifeline, setShowLifeline] = useState(false);
+  const [volumeData, setVolumeData] = useState<number[]>(new Array(12).fill(4));
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Simulate connection and initial greeting
-  useEffect(() => {
-    setStatus(SessionStatus.IN_PROGRESS);
-    
-    // Simulate incoming messages for demo purposes
-    let delay = 1000;
-    MOCK_TRANSCRIPT.forEach((msg) => {
-      setTimeout(() => {
-        setTranscript(prev => [...prev, {
-            ...msg,
-            speaker: msg.speaker as Speaker
-        }]);
-      }, delay);
-      delay += 3000;
-    });
+  const conversation = useConversation({
+    micMuted: isMuted,
+    onConnect: () => {
+      setStatus(SessionStatus.IN_PROGRESS);
+    },
+    onDisconnect: () => {
+      setStatus(SessionStatus.COMPLETED);
+    },
+    onMessage: (props: { message: string, source: string }) => {
+        // The docs say "message" and "source".
+        // source: "user" | "ai"
+        const newMsg: TranscriptMessage = {
+            id: Date.now().toString() + Math.random(),
+            speaker: props.source === 'user' ? Speaker.CANDIDATE : Speaker.INTERVIEWER,
+            content: props.message,
+            timestamp: Date.now()
+        };
+        setTranscript(prev => [...prev, newMsg]);
+    },
+    onError: (error: string) => {
+        console.error("Conversation error:", error);
+        // Optionally handle error state
+    }
+  });
 
-  }, [sessionId]);
+  // Start session on mount
+  useEffect(() => {
+    if (status === SessionStatus.SETUP) {
+        // Start the session
+        // Note: startSession requires agentId.
+        // Since we might not have microphone permission yet, usually this is triggered by user action.
+        // But the previous code simulated it on mount. I will try to start it on mount,
+        // but the browser might block audio context if not user initiated.
+        // However, typically one needs to click a button to start.
+        // Given the flow: SetupPage -> navigate to InterviewPage.
+        // Navigating is not a user interaction on *this* page, but maybe it carries over?
+        // Let's try auto-start. If it fails, the user can click "Resume" (which calls startSession if needed).
+        // But "Resume" button logic below toggles pause.
+
+        // Ideally, we should have a "Start Interview" button if auto-start fails.
+        // For now, let's attempt auto-start.
+        const start = async () => {
+            try {
+                // Request mic permission first explicitly if needed, but startSession does it.
+                await conversation.startSession({
+                    agentId: ELEVENLABS_AGENT_ID
+                });
+            } catch (err) {
+                console.error("Failed to start session:", err);
+            }
+        };
+        start();
+    }
+  }, [sessionId]); // Run once when sessionId is available (which is always)
 
   // Auto-scroll to bottom of transcript
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
-  const handleEndSession = () => {
+  // Audio visualization loop
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateVisualization = () => {
+      if (conversation.status === 'connected') {
+        // Get frequency data. Returns Uint8Array (0-255)
+        // We prefer output (agent voice) or input (user voice)?
+        // The visualizer in the design seems to be generic "voice modulation".
+        // Let's mix both or prioritize output (agent) when speaking, input when not.
+
+        const outputData = conversation.getOutputByteFrequencyData();
+        const inputData = conversation.getInputByteFrequencyData();
+
+        // We have 12 bars. We can sample the frequency data.
+        // Frequency data length is usually 1024 or similar (fftSize/2).
+
+        const data = conversation.isSpeaking ? outputData : inputData;
+
+        if (data) {
+            const step = Math.floor(data.length / 12);
+            const newVolumeData = [];
+            for (let i = 0; i < 12; i++) {
+                // Simple sampling
+                const val = data[i * step];
+                // map 0-255 to percentage 0-100
+                newVolumeData.push((val / 255) * 100);
+            }
+            setVolumeData(newVolumeData);
+        } else {
+             setVolumeData(new Array(12).fill(4)); // idle
+        }
+      } else {
+          setVolumeData(new Array(12).fill(4));
+      }
+      animationFrameId = requestAnimationFrame(updateVisualization);
+    };
+
+    updateVisualization();
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [conversation.status, conversation.isSpeaking]);
+
+  // Handle Mute
+  // The `useConversation` hook handles micMuted status changes via the prop passed to it.
+
+  const handleEndSession = async () => {
     if (window.confirm("Are you sure you want to end the interview? Analysis will be generated.")) {
+      await conversation.endSession();
       setStatus(SessionStatus.COMPLETED);
       navigate(`/results/${sessionId}`);
     }
   };
 
   const handleLifeline = () => {
-    setStatus(SessionStatus.PAUSED);
+    // Pause the conversation?
+    // If I pause, I might want to mute mic?
+    // setStatus(SessionStatus.PAUSED);
+    // setShowLifeline(true);
+
+    // The previous code set status to paused.
+    // Here, maybe we can mute the mic so the user can talk to the "Lifeline" (if it was voice) or just think.
+    // "Lifeline" seems to be a modal.
+
+    setIsMuted(true);
     setShowLifeline(true);
+    // setStatus(SessionStatus.PAUSED); // This is just UI state in my component
   };
 
   const closeLifeline = () => {
     setShowLifeline(false);
-    setStatus(SessionStatus.IN_PROGRESS);
+    setIsMuted(false);
+    // setStatus(SessionStatus.IN_PROGRESS);
+  };
+
+  const togglePause = async () => {
+      if (status === SessionStatus.IN_PROGRESS) {
+          // Pause logic
+          // Maybe end session? No, that kills connection.
+          // Maybe just mute?
+          setIsMuted(true);
+          setStatus(SessionStatus.PAUSED);
+      } else if (status === SessionStatus.PAUSED) {
+          setIsMuted(false);
+          setStatus(SessionStatus.IN_PROGRESS);
+      } else if (status === SessionStatus.SETUP || status === SessionStatus.COMPLETED) {
+          // Restart or start
+          await conversation.startSession({ agentId: ELEVENLABS_AGENT_ID });
+      }
   };
 
   return (
@@ -70,11 +185,11 @@ export const InterviewPage: React.FC = () => {
             <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-3">
                   <div className={`relative flex h-3 w-3`}>
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status === SessionStatus.IN_PROGRESS ? 'bg-red-400' : 'bg-yellow-400'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-3 w-3 ${status === SessionStatus.IN_PROGRESS ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${conversation.status === 'connected' ? 'bg-red-400' : 'bg-yellow-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${conversation.status === 'connected' ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
                   </div>
-                  <span className={`font-display font-bold tracking-wider text-sm ${status === SessionStatus.IN_PROGRESS ? 'text-red-400' : 'text-yellow-400'}`}>
-                    {status === SessionStatus.IN_PROGRESS ? 'LIVE FEED' : 'SESSION PAUSED'}
+                  <span className={`font-display font-bold tracking-wider text-sm ${conversation.status === 'connected' ? 'text-red-400' : 'text-yellow-400'}`}>
+                    {conversation.status === 'connected' ? 'LIVE FEED' : conversation.status.toUpperCase()}
                   </span>
                </div>
                <div className="text-xs font-mono text-slate-500 border border-white/10 px-2 py-1 rounded">
@@ -85,7 +200,7 @@ export const InterviewPage: React.FC = () => {
             <div className="mb-8">
                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center shadow-2xl mb-4 relative">
                   <div className="absolute inset-0 bg-violet-500/20 blur-xl rounded-full"></div>
-                  <Activity className="w-10 h-10 text-violet-400 relative z-10" />
+                  <Activity className={`w-10 h-10 text-violet-400 relative z-10 ${conversation.isSpeaking ? 'animate-pulse' : ''}`} />
                </div>
                <h2 className="text-3xl font-display font-bold text-white mb-1">Sophia</h2>
                <p className="text-violet-300 font-medium">Senior Engineering Manager</p>
@@ -95,13 +210,13 @@ export const InterviewPage: React.FC = () => {
           {/* Audio Visualization HUD */}
           <div className="flex-1 flex flex-col justify-center py-8 relative z-10">
              <div className="flex items-end justify-center gap-1.5 h-24 mb-4">
-               {[...Array(12)].map((_, i) => (
+               {volumeData.map((vol, i) => (
                  <div 
                    key={i} 
-                   className={`w-2 rounded-t-sm transition-all duration-75 ${status === SessionStatus.IN_PROGRESS ? 'bg-gradient-to-t from-violet-600 to-fuchsia-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]' : 'bg-slate-800 h-1'}`}
+                   className={`w-2 rounded-t-sm transition-all duration-75 ${conversation.status === 'connected' ? 'bg-gradient-to-t from-violet-600 to-fuchsia-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]' : 'bg-slate-800 h-1'}`}
                    style={{ 
-                     height: status === SessionStatus.IN_PROGRESS ? `${Math.max(10, Math.random() * 100)}%` : '4px',
-                     opacity: status === SessionStatus.IN_PROGRESS ? 0.8 + Math.random() * 0.2 : 0.3
+                     height: conversation.status === 'connected' ? `${Math.max(4, vol)}%` : '4px',
+                     opacity: conversation.status === 'connected' ? 0.8 + (vol/100) * 0.2 : 0.3
                    }}
                  ></div>
                ))}
@@ -122,7 +237,7 @@ export const InterviewPage: React.FC = () => {
             
             <Button 
               variant="secondary"
-              onClick={() => status === SessionStatus.PAUSED ? setStatus(SessionStatus.IN_PROGRESS) : setStatus(SessionStatus.PAUSED)}
+              onClick={togglePause}
               className="w-full"
             >
               {status === SessionStatus.PAUSED ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
@@ -154,7 +269,7 @@ export const InterviewPage: React.FC = () => {
       <div className="w-full md:w-2/3 glass-card rounded-3xl flex flex-col relative overflow-hidden border border-white/10 shadow-2xl">
         <div className="p-6 border-b border-white/5 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-10 flex justify-between items-center">
           <h3 className="font-display font-semibold text-white flex items-center gap-2">
-            <Radio className="w-4 h-4 text-violet-400 animate-pulse" />
+            <Radio className={`w-4 h-4 text-violet-400 ${conversation.status === 'connected' ? 'animate-pulse' : ''}`} />
             Real-time Transcript
           </h3>
           <div className="flex gap-2">
