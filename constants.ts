@@ -2,6 +2,9 @@ import { InterviewType } from './types';
 
 export const APP_NAME = "Mock Interviewer AI";
 
+// TODO: Replace with your actual ElevenLabs Agent ID
+export const ELEVENLABS_AGENT_ID = "replace-with-your-agent-id";
+
 export const DEFAULT_JOB_DESCRIPTION = `We are looking for a Senior React Engineer to join our team. 
 The ideal candidate should have experience with:
 - React 18+ and TypeScript
