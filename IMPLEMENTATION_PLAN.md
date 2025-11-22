@@ -36,21 +36,14 @@
 - **File Storage**: AWS S3 or local storage (Phase 1)
 - **Authentication**: JWT tokens
 
-### Voice Integration (Decision Point)
-**Option 1 (Recommended for MVP): ElevenLabs Conversational AI**
+### Voice Integration
+**ElevenLabs Conversational AI**
 - ✅ Built-in turn detection
 - ✅ Natural conversation flow
 - ✅ Easy transcript access
 - ❌ Less control over prompt/behavior mid-conversation
 
-**Option 2: OpenAI Realtime API**
-- ✅ More control over agent behavior
-- ✅ Can dynamically update instructions
-- ✅ Native integration with GPT models
-- ❌ More complex implementation
-- ❌ Need to handle audio streaming yourself
-
-**Recommendation**: Start with **ElevenLabs** for MVP, then potentially migrate to OpenAI Realtime if you need more control.
+- Start with **ElevenLabs** for MVP, then potentially migrate to OpenAI Realtime if you need more control.
 
 ### LLM Services
 - **Attack Plan Generation**: GPT5.1 (low reasoning mode)
