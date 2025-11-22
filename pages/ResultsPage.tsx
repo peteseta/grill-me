@@ -1,0 +1,191 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, Target, MessageSquare, RefreshCw, Download, ChevronDown, Share2, Zap } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+
+export const ResultsPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-10 pb-16 animate-fade-in">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-wider">Analysis Complete</span>
+            <span className="text-slate-500 text-sm">Session ID: #8X29-Q</span>
+          </div>
+          <h1 className="text-4xl font-display font-bold text-white">Performance Report</h1>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button onClick={() => navigate('/')} variant="glow">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            New Session
+          </Button>
+        </div>
+      </div>
+
+      {/* Score Cards */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Overall Score */}
+        <div className="glass-card rounded-3xl p-8 relative overflow-hidden group hover:border-violet-500/30 transition-all duration-500">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <Trophy className="w-32 h-32 text-violet-500" />
+          </div>
+          <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-violet-600/20 rounded-full blur-3xl"></div>
+          
+          <h3 className="text-violet-300 font-bold text-sm uppercase tracking-widest mb-4">Overall Score</h3>
+          <div className="flex items-baseline gap-2">
+            <div className="text-7xl font-display font-bold text-white text-glow">7.5</div>
+            <span className="text-2xl text-slate-500 font-light">/10</span>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-sm font-medium text-green-400 bg-green-500/10 w-fit px-3 py-1 rounded-full border border-green-500/20">
+            <Zap className="w-3 h-3 fill-current" />
+            Top 15% of candidates
+          </div>
+        </div>
+
+        {/* Bullshit Meter */}
+        <div className="glass-card rounded-3xl p-8 relative overflow-hidden group hover:border-red-500/30 transition-all duration-500">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <Target className="w-32 h-32 text-red-500" />
+          </div>
+          <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-red-600/20 rounded-full blur-3xl"></div>
+
+          <h3 className="text-red-300 font-bold text-sm uppercase tracking-widest mb-4">Bullshit Meter</h3>
+          <div className="flex items-baseline gap-2">
+            <div className="text-7xl font-display font-bold text-white">12<span className="text-4xl">%</span></div>
+          </div>
+          <p className="text-sm text-slate-400 mt-4">Low detection rate. Responses appeared genuine and grounded in fact.</p>
+        </div>
+
+        {/* Waffle Score */}
+        <div className="glass-card rounded-3xl p-8 relative overflow-hidden group hover:border-yellow-500/30 transition-all duration-500">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <MessageSquare className="w-32 h-32 text-yellow-500" />
+          </div>
+          <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-yellow-600/20 rounded-full blur-3xl"></div>
+
+          <h3 className="text-yellow-300 font-bold text-sm uppercase tracking-widest mb-4">Waffle Score</h3>
+          <div className="flex items-baseline gap-2">
+            <div className="text-7xl font-display font-bold text-white">45<span className="text-4xl">%</span></div>
+          </div>
+          <p className="text-sm text-yellow-500 mt-4 font-medium">Warning: Responses lacked conciseness.</p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        
+        {/* Main Analysis */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="glass-card rounded-3xl p-8 md:p-10 border-t border-white/10">
+            <h2 className="text-2xl font-display font-bold text-white mb-6 flex items-center gap-3">
+              <span className="w-1 h-8 bg-violet-500 rounded-full"></span>
+              Executive Summary
+            </h2>
+            <p className="text-slate-300 leading-8 text-lg mb-8 font-light">
+              You demonstrated strong technical knowledge regarding React architecture and modern hooks. However, your answers regarding system design were slightly unstructured. You tended to over-explain simple concepts (high waffle score) which might lose the interviewer's attention.
+            </p>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-slate-900/50 rounded-2xl p-6 border border-green-500/10">
+                <h3 className="text-green-400 font-bold mb-4 flex items-center uppercase tracking-wider text-sm">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-2 shadow-[0_0_10px_rgba(74,222,128,0.5)]"></div>
+                  Core Strengths
+                </h3>
+                <ul className="space-y-4">
+                  {['React ecosystem depth', 'Honesty about knowledge gaps', 'Communication tone'].map((item, i) => (
+                    <li key={i} className="flex gap-3 text-slate-300">
+                      <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
+                        <span className="text-green-500 text-xs">✓</span>
+                      </div>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-slate-900/50 rounded-2xl p-6 border border-red-500/10">
+                <h3 className="text-red-400 font-bold mb-4 flex items-center uppercase tracking-wider text-sm">
+                  <div className="w-2 h-2 bg-red-400 rounded-full mr-2 shadow-[0_0_10px_rgba(248,113,113,0.5)]"></div>
+                  Areas for Growth
+                </h3>
+                <ul className="space-y-4">
+                  {['Conciseness (Waffle score)', 'System Design structure', 'Specific metrics in examples'].map((item, i) => (
+                    <li key={i} className="flex gap-3 text-slate-300">
+                      <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+                        <span className="text-red-500 text-xs">!</span>
+                      </div>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-3xl p-8 md:p-10">
+             <h2 className="text-2xl font-display font-bold text-white mb-6 flex items-center gap-3">
+               <span className="w-1 h-8 bg-fuchsia-500 rounded-full"></span>
+               Transcript Insights
+             </h2>
+             <div className="space-y-6">
+               <div className="border-l-4 border-yellow-500 bg-yellow-500/5 p-6 rounded-r-2xl hover:bg-yellow-500/10 transition-colors cursor-default">
+                  <div className="flex justify-between mb-3">
+                     <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest bg-yellow-500/10 px-2 py-1 rounded">Waffling Detected</span>
+                     <span className="text-xs text-slate-500 font-mono">02:15</span>
+                  </div>
+                  <p className="text-slate-200 italic mb-4 text-lg">"Well, basically, you know, when I was working on that thing, it was sort of like..."</p>
+                  <div className="flex gap-2 items-center text-sm text-slate-400">
+                    <Zap className="w-4 h-4 text-yellow-500" />
+                    Tip: Remove filler words. Start directly with the action you took.
+                  </div>
+               </div>
+               
+               <div className="border-l-4 border-green-500 bg-green-500/5 p-6 rounded-r-2xl hover:bg-green-500/10 transition-colors cursor-default">
+                  <div className="flex justify-between mb-3">
+                     <span className="text-xs font-bold text-green-500 uppercase tracking-widest bg-green-500/10 px-2 py-1 rounded">Strong Point</span>
+                     <span className="text-xs text-slate-500 font-mono">04:30</span>
+                  </div>
+                  <p className="text-slate-200 italic mb-4 text-lg">"I reduced load times by 40% by implementing code splitting."</p>
+                  <div className="flex gap-2 items-center text-sm text-slate-400">
+                    <Zap className="w-4 h-4 text-green-500" />
+                    Great use of specific metrics to demonstrate impact.
+                  </div>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Action Plan Sidebar */}
+        <div className="space-y-6">
+          <div className="glass-card rounded-3xl p-8 sticky top-24">
+            <h3 className="text-lg font-display font-bold text-white mb-6">Recommended Actions</h3>
+            <div className="space-y-4">
+              <div className="p-5 bg-slate-900/80 rounded-xl border border-white/5 hover:border-violet-500/50 transition-colors group">
+                <h4 className="text-white font-medium mb-2 group-hover:text-violet-400 transition-colors">Practice STAR Method</h4>
+                <p className="text-sm text-slate-400 leading-relaxed">Your behavioral answers lacked structure. Focus on Situation, Task, Action, Result.</p>
+              </div>
+              <div className="p-5 bg-slate-900/80 rounded-xl border border-white/5 hover:border-violet-500/50 transition-colors group">
+                <h4 className="text-white font-medium mb-2 group-hover:text-violet-400 transition-colors">System Design Review</h4>
+                <p className="text-sm text-slate-400 leading-relaxed">Review scalable architecture patterns for frontend applications.</p>
+              </div>
+            </div>
+            <Button className="w-full mt-8 py-4" variant="glow">
+               Generate Study Guide
+            </Button>
+            <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between text-slate-500 text-sm">
+              <span>Share results</span>
+              <button className="hover:text-white transition-colors"><Share2 className="w-5 h-5" /></button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
