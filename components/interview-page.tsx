@@ -353,7 +353,25 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F1E8]">
+    <div className="min-h-screen bg-[#F5F1E8] relative">
+      {/* Full-page overlay during analysis */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-[#FDFCFA] rounded-3xl shadow-2xl border-2 border-[#2C2416]/10 p-12 text-center max-w-md">
+            <Loader2 className="w-20 h-20 text-[#C14B30] animate-spin mx-auto mb-6" />
+            <h2 className="text-[#2C2416] mb-3" style={{ fontFamily: 'var(--font-serif)' }}>
+              Processing Your Interview
+            </h2>
+            <p className="text-[#6B5D4F] mb-2">
+              Analyzing your responses and generating feedback...
+            </p>
+            <p className="text-[#6B5D4F] text-sm italic">
+              This may take a moment
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header with Exit Button */}
       <header className="bg-[#FDFCFA] border-b border-[#2C2416]/10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
