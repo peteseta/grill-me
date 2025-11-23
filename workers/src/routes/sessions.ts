@@ -44,6 +44,8 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
       return badRequest('interview_type must be one of: Technical, Behavioral, Mixed');
     }
 
+    // todo: enforce company name and role title
+
     // Parse resume
     const parsedResume = await parseResume(resume, c.env);
 

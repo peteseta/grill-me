@@ -126,7 +126,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
           <div>
             <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
               <Briefcase className="w-5 h-5 text-[#C14B30]" />
-              <span>Role Title (Optional)</span>
+              <span>Role Title (Optional)</span> // todo: make this not optional
             </label>
             <input
               type="text"
@@ -141,7 +141,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
           <div>
             <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
               <Briefcase className="w-5 h-5 text-[#C14B30]" />
-              <span>Company Name (Optional)</span>
+              <span>Company Name (Optional)</span> // todo: make this not optional
             </label>
             <input
               type="text"

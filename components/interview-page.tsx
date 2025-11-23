@@ -60,6 +60,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
 
       // Initialize ElevenLabs Conversation with dynamic variables
       // dynamicVariables is a top-level parameter for personalizing the agent
+        // fixme: conversation is doubled. there are two connections for some reason.
       const conversation = await Conversation.startSession({
         agentId: config.agent_id,
         connectionType: 'websocket',
@@ -123,6 +124,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       console.error('No active conversation to analyze');
       return;
     }
+
+    // fixme: immediately after clicking end, it takes a while for the audio to be uploaded and for us to get the transcript etc from ElevenLabs. so at first the /analyze endpoint returns a 204. After a while the audioUrl gets pushed to the database, and then the endpoint is called again this time returning a 200. We need to end the connection to the agent, wait for the database entry to be created, and THEN post the /analyze endpoint.
 
     try {
       // End the ElevenLabs conversation
