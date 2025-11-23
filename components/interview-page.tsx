@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, X, Play, Pause, AlertCircle, Loader2 } from 'lucide-react';
+import { Conversation } from '@11labs/client';
 import { apiClient } from '../lib/api-client';
 
 type InterviewState = 'loading' | 'ready' | 'listening' | 'processing' | 'speaking' | 'error';
@@ -18,6 +19,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentConfig, setAgentConfig] = useState<any>(null);
+  const conversationRef = useRef<Conversation | null>(null);
 
   // Mock questions for now - these will come from ElevenLabs
   const mockQuestions = [
@@ -30,6 +32,13 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
 
   useEffect(() => {
     loadSessionConfig();
+
+    // Cleanup on unmount
+    return () => {
+      if (conversationRef.current) {
+        conversationRef.current.endSession().catch(console.error);
+      }
+    };
   }, [sessionId]);
 
   useEffect(() => {
@@ -48,19 +57,46 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       setInterviewState('loading');
       const config = await apiClient.getSessionConfig(sessionId);
       setAgentConfig(config);
+
+      // Initialize ElevenLabs Conversation
+      const conversation = new Conversation();
+      conversationRef.current = conversation;
+
+      // Set up event listeners
+      conversation.on('connected', () => {
+        console.log('ElevenLabs conversation connected');
+      });
+
+      conversation.on('disconnected', () => {
+        console.log('ElevenLabs conversation disconnected');
+      });
+
+      conversation.on('error', (error) => {
+        console.error('ElevenLabs error:', error);
+        setError('Failed to connect to interview service');
+        setInterviewState('error');
+      });
+
+      // Start the session with agent configuration
+      await conversation.startSession({
+        agentId: config.agent_id,
+        overrides: {
+          agent: {
+            prompt: {
+              variables: {
+                ...config.dynamic_variables,
+                ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2)
+              }
+            }
+          }
+        }
+      });
+
+      // Store conversation ID for later analysis
+      const convId = conversation.getId();
+      setConversationId(convId);
+
       setInterviewState('ready');
-
-      // TODO: Initialize ElevenLabs SDK here with config.agent_id and config.dynamic_variables
-      // The ATTACK_PLAN_JSON needs to be stringified before passing to the SDK
-      // Example:
-      // await conversation.startSession({
-      //   agentId: config.agent_id,
-      //   dynamicVariables: {
-      //     ...config.dynamic_variables,
-      //     ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2)
-      //   }
-      // });
-
     } catch (err) {
       console.error('Failed to load session config:', err);
       setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
@@ -68,49 +104,95 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     }
   };
 
-  const startInterview = () => {
-    setInterviewState('speaking');
-    setElapsedTime(0);
-    setQuestionStartTime(0);
+  const startInterview = async () => {
+    if (!conversationRef.current) {
+      setError('Interview session not initialized');
+      setInterviewState('error');
+      return;
+    }
 
-    // TODO: Start ElevenLabs conversation here
-    // For now, simulate starting
-    setTimeout(() => {
-      setInterviewState('listening');
-      setIsRecording(true);
-    }, 3000);
+    try {
+      setInterviewState('speaking');
+      setElapsedTime(0);
+      setQuestionStartTime(0);
+
+      // Start the ElevenLabs conversation
+      await conversationRef.current.startConversation();
+
+      // Listen for agent speaking state
+      conversationRef.current.on('agentSpeaking', () => {
+        setInterviewState('speaking');
+      });
+
+      conversationRef.current.on('agentFinishedSpeaking', () => {
+        setInterviewState('listening');
+        setIsRecording(true);
+      });
+
+      conversationRef.current.on('userSpeaking', () => {
+        setIsRecording(true);
+      });
+
+      conversationRef.current.on('userFinishedSpeaking', () => {
+        setIsRecording(false);
+        setInterviewState('processing');
+      });
+
+    } catch (err) {
+      console.error('Failed to start interview:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start interview');
+      setInterviewState('error');
+    }
+  };
+
+  const endInterviewAndAnalyze = async () => {
+    if (!conversationRef.current || !conversationId) {
+      console.error('No active conversation to analyze');
+      return;
+    }
+
+    try {
+      // End the ElevenLabs conversation
+      await conversationRef.current.endSession();
+
+      setInterviewState('processing');
+
+      // Trigger backend analysis
+      await apiClient.analyzeSession(sessionId, {
+        conversation_id: conversationId
+      });
+
+      alert('Interview completed! Check your history for detailed feedback.');
+      onExit();
+    } catch (err) {
+      console.error('Failed to analyze interview:', err);
+      setError(err instanceof Error ? err.message : 'Failed to analyze interview');
+      setInterviewState('error');
+    }
   };
 
   const toggleRecording = () => {
+    if (!conversationRef.current) return;
+
     if (isRecording) {
+      // Mute the microphone
+      conversationRef.current.setVolume({ mic: 0 });
       setIsRecording(false);
       setInterviewState('processing');
-      setTimeout(() => {
-        if (currentQuestion < mockQuestions.length - 1) {
-          setInterviewState('speaking');
-          setTimeout(() => {
-            setCurrentQuestion(currentQuestion + 1);
-            setQuestionStartTime(0);
-            setInterviewState('listening');
-            setIsRecording(true);
-          }, 3000);
-        } else {
-          setInterviewState('ready');
-          // TODO: Get conversation_id from ElevenLabs and trigger analysis
-          // await apiClient.analyzeSession(sessionId, { conversation_id: conversationId });
-          alert('Interview completed! Check your history for detailed feedback.');
-          onExit();
-        }
-      }, 2000);
     } else {
+      // Unmute the microphone
+      conversationRef.current.setVolume({ mic: 1 });
       setIsRecording(true);
       setInterviewState('listening');
     }
   };
 
-  const handleExit = () => {
+  const handleExit = async () => {
     if (interviewState !== 'ready' && interviewState !== 'loading' && interviewState !== 'error') {
       if (confirm('Are you sure you want to exit the interview? Your progress will be lost.')) {
+        if (conversationRef.current) {
+          await conversationRef.current.endSession().catch(console.error);
+        }
         onExit();
       }
     } else {
@@ -316,6 +398,14 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
                 <p className="text-[#6B5D4F] mt-4 italic text-center">
                   {isRecording ? 'Click to pause recording' : 'Click to continue recording'}
                 </p>
+
+                {/* End Interview Button */}
+                <button
+                  onClick={endInterviewAndAnalyze}
+                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg"
+                >
+                  End Interview & Get Feedback
+                </button>
               </div>
 
               {/* Voice Memos Visualization */}
