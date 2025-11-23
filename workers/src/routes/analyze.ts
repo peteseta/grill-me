@@ -16,17 +16,6 @@ import { success, badRequest, notFound } from '../utils/response';
 /**
  * POST /api/v1/sessions/{session_id}/analyze
  * Analyze the interview and generate feedback
- *
- * TODO: Implement interview analysis endpoint
- * - Extract session_id from URL parameters
- * - Parse request body to get conversation_id (ElevenLabs)
- * - Fetch session from database
- * - Fetch transcript from ElevenLabs using conversation_id
- * - Fetch audio URL from ElevenLabs
- * - Call interview analyzer service to generate feedback
- * - Store analysis in interview_analyses table
- * - Update session status to 'completed'
- * - Return analysis response
  */
 export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -116,13 +105,6 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
 /**
  * GET /api/v1/sessions/{session_id}/results
  * Get cached analysis results for a session
- *
- * TODO: Implement results retrieval endpoint
- * - Extract session_id from URL parameters
- * - Query interview_analyses table for this session
- * - Query interview_sessions table for basic session info
- * - Return cached analysis if it exists
- * - Return 404 if no analysis found
  */
 export async function getSessionResults(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
