@@ -220,36 +220,3 @@ Retrieves a list of past interview sessions for a specific user. This is used to
 Retrieves the analysis if the user revisits the page later (caches the result of the `/analyze` endpoint).
 
 *   **Response**: Same JSON object as `/analyze`.
-
----
-
-## LLM System Prompt for Analysis (For the Backend Developer)
-
-To ensure the LLM outputs the JSON schema defined in route #4, use this prompt structure in your backend:
-
-```text
-You are an Interview Critic. I will provide a transcript. 
-You must output a JSON object with metrics and an array of 'annotations'.
-
-For the annotations:
-1. You must identify specific phrases in the user's speech that are either 'positive' (green), 'negative' (red), or 'warning' (yellow).
-2. You must quote the text EXACTLY as it appears in the transcript so my frontend can find-and-replace it with a highlight.
-3. Use 'negative' for: Buzzwords, lies, rambling, avoiding the question.
-4. Use 'positive' for: Specific metrics, clear structure (STAR method), admitting mistakes honestly.
-
-Input Transcript:
-{{TRANSCRIPT}}
-
-Required Output Schema:
-{
-  "metrics": { "overall_score": int, "bullshit_meter": int, ... },
-  "annotations": [
-    {
-      "target_message_index": int, 
-      "exact_quote": "string", 
-      "type": "positive"|"negative"|"warning", 
-      "feedback": "string"
-    }
-  ]
-}
-```
