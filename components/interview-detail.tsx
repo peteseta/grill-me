@@ -310,28 +310,29 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
               </p>
             </div>
             <div className="text-right">
-              <div className="space-y-2">
+              {/* todo: Improve UI/layout for score bubbles - current design doesn't look good */}
+              <div className="space-y-3 flex flex-col items-end">
                 {sessionData?.metrics ? (
                   <>
-                    <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                    <div className="inline-flex items-center gap-3 px-6 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl shadow-sm">
                       <Star className="w-6 h-6 text-[#C14B30]" />
-                      <span className="text-[#C14B30] font-medium">
-                        Overall: {Math.round(sessionData.metrics.score_overall * 10)}%
+                      <span className="text-[#C14B30] text-lg">
+                        Overall: {Math.round(sessionData.metrics.score_overall)}%
                       </span>
                     </div>
-                    <div className="flex gap-2 justify-end">
-                      <div className="px-4 py-2 bg-[#5A7C6F]/10 border-2 border-[#5A7C6F]/20 rounded-xl text-sm">
-                        <span className="text-[#5A7C6F] font-medium">Technical: {sessionData.metrics.score_technical}%</span>
+                    <div className="flex gap-2">
+                      <div className="px-4 py-2 bg-[#5A7C6F]/10 border-2 border-[#5A7C6F]/20 rounded-xl">
+                        <span className="text-[#5A7C6F] font-medium text-sm">Technical: {sessionData.metrics.score_technical}%</span>
                       </div>
-                      <div className="px-4 py-2 bg-[#D4845C]/10 border-2 border-[#D4845C]/20 rounded-xl text-sm">
-                        <span className="text-[#D4845C] font-medium">BS Detector: {100 - sessionData.metrics.score_bullshit}%</span>
+                      <div className="px-4 py-2 bg-[#D4845C]/10 border-2 border-[#D4845C]/20 rounded-xl">
+                        <span className="text-[#D4845C] font-medium text-sm">BS Detector: {100 - sessionData.metrics.score_bullshit}%</span>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                  <div className="inline-flex items-center gap-3 px-6 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl shadow-sm">
                     <Star className="w-6 h-6 text-[#C14B30]" />
-                    <span className="text-[#C14B30] font-medium">Score: TODO</span>
+                    <span className="text-[#C14B30] font-semibold text-lg">Score: TODO</span>
                   </div>
                 )}
               </div>
@@ -407,8 +408,12 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   style={{ width: `${(currentTime / duration) * 100}%` }}
                 />
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-[#FDFCFA] border-3 border-[#C14B30] rounded-full shadow-lg"
-                  style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                  className="absolute w-5 h-5 bg-[#FDFCFA] border-3 border-[#C14B30] rounded-full shadow-lg"
+                  style={{
+                    left: `${(currentTime / duration) * 100}%`,
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)'
+                  }}
                 />
               </div>
 
