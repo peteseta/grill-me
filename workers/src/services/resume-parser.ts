@@ -4,6 +4,9 @@
  */
 
 import { Env } from '../types/env';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+import OpenAI from 'openai';
 
 export interface ParsedResume {
   raw_text: string;
@@ -25,25 +28,139 @@ export interface ParsedResume {
 }
 
 /**
+ * Extract text from a PDF file
+ */
+async function extractTextFromPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ');
+    fullText += pageText + '\n';
+  }
+
+  return fullText.trim();
+}
+
+/**
+ * Extract text from a DOCX file
+ */
+async function extractTextFromDOCX(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value.trim();
+}
+
+/**
+ * Extract text from a TXT file
+ */
+async function extractTextFromTXT(file: File): Promise<string> {
+  return await file.text();
+}
+
+/**
+ * Extract text from resume file based on type
+ */
+async function extractText(file: File): Promise<string> {
+  const fileType = file.type.toLowerCase();
+  const fileName = file.name.toLowerCase();
+
+  // Determine file type from MIME type or extension
+  if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+    return await extractTextFromPDF(file);
+  } else if (
+    fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    fileName.endsWith('.docx')
+  ) {
+    return await extractTextFromDOCX(file);
+  } else if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
+    return await extractTextFromTXT(file);
+  } else {
+    throw new Error(`Unsupported file type: ${fileType}. Supported types: PDF, DOCX, TXT`);
+  }
+}
+
+/**
+ * Call OpenAI API to extract structured data from resume text
+ */
+async function extractWithOpenAI(text: string, apiKey: string): Promise<ParsedResume> {
+  const openai = new OpenAI({
+    apiKey: apiKey,
+  });
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a resume parser. Extract structured information from resumes and return valid JSON only.',
+      },
+      {
+        role: 'user',
+        content: `Parse the following resume and extract structured information. Return ONLY a valid JSON object with this exact structure:
+{
+  "candidate_name": "string or null",
+  "email": "string or null",
+  "phone": "string or null",
+  "skills": ["array of skill strings"] or null,
+  "experience": [{"company": "string", "title": "string", "duration": "string or null", "description": "string or null"}] or null,
+  "education": [{"institution": "string", "degree": "string or null", "year": "string or null"}] or null
+}
+
+Resume text:
+${text}`,
+      },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
+  });
+
+  const content = completion.choices[0].message.content;
+  if (!content) {
+    throw new Error('No content returned from OpenAI');
+  }
+
+  const parsed = JSON.parse(content);
+
+  return {
+    raw_text: text,
+    candidate_name: parsed.candidate_name || undefined,
+    email: parsed.email || undefined,
+    phone: parsed.phone || undefined,
+    skills: parsed.skills || undefined,
+    experience: parsed.experience || undefined,
+    education: parsed.education || undefined,
+  };
+}
+
+/**
  * Parse a resume file and extract structured information
  *
  * @param resumeFile - The resume file (PDF, DOCX, or TXT)
  * @param env - Environment variables for API keys
  * @returns Parsed resume data
- *
- * TODO: Implement resume parsing logic
- * - Support PDF, DOCX, and TXT formats
- * - Use LLM (GPT-4o or Claude) to extract structured data
- * - Extract candidate name, contact info, skills, experience, education
  */
 export async function parseResume(
   resumeFile: File,
   env: Env
 ): Promise<ParsedResume> {
-  // TODO: Implement resume parsing
-  // 1. Extract text from file (use pdf-parse for PDF, mammoth for DOCX)
-  // 2. Send text to LLM with structured prompt
-  // 3. Parse LLM response into ParsedResume format
+  // Step 1: Extract text from file
+  const text = await extractText(resumeFile);
 
-  throw new Error('Resume parsing not yet implemented');
+  if (!text || text.trim().length === 0) {
+    throw new Error('Failed to extract text from resume file');
+  }
+
+  // Step 2: Use OpenAI to extract structured data
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is required for resume parsing');
+  }
+
+  return await extractWithOpenAI(text, env.OPENAI_API_KEY);
 }
