@@ -10,7 +10,7 @@ import { Env } from '@/types';
 import { TranscriptMessage, StructuredFeedbackItem } from '@/types';
 
 export interface AnalysisResult {
-  score_overall: number; // 1-10
+  score_overall: number; // 0-100 (high = good)
   score_bullshit: number; // 0-100 (high = bad)
   score_technical: number; // 0-100 (high = good)
   summary_feedback: string;
@@ -154,7 +154,7 @@ Analysis Requirements:
 6. **Categories:** Assign categories like: 'buzzword_stuffing', 'vagueness', 'concrete_metric', 'good_structure', 'technical_depth', 'evasion', etc.
 
 Scoring Guidelines:
-- **score_overall (1-10):** Overall interview performance
+- **score_overall (0-100):** Overall interview performance
 - **score_bullshit (0-100):** Higher means more buzzwords/vagueness/BS
 - **score_technical (0-100):** Higher means better technical depth and accuracy
 
