@@ -20,6 +20,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentConfig, setAgentConfig] = useState<any>(null);
   const conversationRef = useRef<Conversation | null>(null);
+  const isInitializingRef = useRef<boolean>(false);
 
   // Mock questions for now - these will come from ElevenLabs
   const mockQuestions = [
@@ -35,8 +36,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
 
     // Cleanup on unmount
     return () => {
+      isInitializingRef.current = false;
       if (conversationRef.current) {
         conversationRef.current.endSession().catch(console.error);
+        conversationRef.current = null;
       }
     };
   }, [sessionId]);
@@ -53,8 +56,16 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   }, [interviewState]);
 
   const loadSessionConfig = async () => {
+    // Prevent concurrent initialization (e.g., from React Strict Mode double-mounting)
+    if (isInitializingRef.current) {
+      console.log('Initialization already in progress, skipping duplicate call');
+      return;
+    }
+
     try {
+      isInitializingRef.current = true;
       setInterviewState('loading');
+
       const config = await apiClient.getSessionConfig(sessionId);
       setAgentConfig(config);
 
@@ -114,6 +125,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       console.error('Failed to load session config:', err);
       setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
       setInterviewState('error');
+    } finally {
+      isInitializingRef.current = false;
     }
   };
 
