@@ -12,8 +12,8 @@ export interface CreateSessionRequest {
   job_description_text: string;
   user_id: string; // UUID
   interview_type: 'Technical' | 'Behavioral' | 'Mixed';
-  role_title?: string;
-  company_name?: string;
+  role_title: string;
+  company_name: string;
 }
 
 export interface CreateSessionResponse {
@@ -61,7 +61,7 @@ export interface AnalyzeSessionRequest {
 export interface AnalyzeSessionResponse {
   session_id: string;
   role_title: string;
-  company_name?: string;
+  company_name: string;
   created_at: string;
   metrics: {
     score_overall: number; // 1-10
@@ -81,7 +81,7 @@ export interface SessionListItem {
   session_id: string;
   created_at: string;
   role_title: string;
-  company_name?: string;
+  company_name: string;
   status: 'setup' | 'ready' | 'in_progress' | 'completed';
   scores?: {
     score_overall: number;

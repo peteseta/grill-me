@@ -28,8 +28,8 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
     const companyName = formData.get('company_name') as string;
 
     // Validate inputs
-    if (!resumeEntry || !jobDescription || !userId || !interviewType) {
-      return badRequest('Missing required fields: resume, job_description_text, user_id, and interview_type are required');
+    if (!resumeEntry || !jobDescription || !userId || !interviewType || !roleTitle || !companyName) {
+      return badRequest('Missing required fields: resume, job_description_text, user_id, interview_type, role_title, and company_name are required');
     }
 
     // Validate resume is a File (check if it has file-like properties)
@@ -44,7 +44,6 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
       return badRequest('interview_type must be one of: Technical, Behavioral, Mixed');
     }
 
-    // todo: enforce company name and role title
 
     // Parse resume
     const parsedResume = await parseResume(resume, c.env);
@@ -53,7 +52,7 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
     const attackPlan = await generateAttackPlan({
       resume: parsedResume,
       jobDescription,
-      roleTitle: roleTitle || 'Candidate',
+      roleTitle,
       companyName,
       interviewType: interviewType as 'Technical' | 'Behavioral' | 'Mixed',
     }, c.env);
@@ -63,7 +62,7 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
 
     const sessionData: Database['public']['Tables']['interview_sessions']['Insert'] = {
       user_id: userId,
-      role_title: roleTitle || 'Candidate',
+      role_title: roleTitle,
       company_name: companyName,
       job_description: jobDescription,
       interview_type: interviewType as 'Technical' | 'Behavioral' | 'Mixed',

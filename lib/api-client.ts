@@ -15,8 +15,8 @@ export interface CreateSessionRequest {
   job_description_text: string;
   user_id: string;
   interview_type: 'Technical' | 'Behavioral' | 'Mixed';
-  role_title?: string;
-  company_name?: string;
+  role_title: string;
+  company_name: string;
 }
 
 export interface CreateSessionResponse {
@@ -40,7 +40,7 @@ export interface SessionListItem {
   session_id: string;
   created_at: string;
   role_title: string;
-  company_name?: string;
+  company_name: string;
   status: 'setup' | 'ready' | 'in_progress' | 'completed';
   scores?: {
     score_overall: number;
@@ -83,7 +83,7 @@ export interface StructuredFeedbackItem {
 export interface AnalyzeSessionResponse {
   session_id: string;
   role_title: string;
-  company_name?: string;
+  company_name: string;
   created_at: string;
   metrics: {
     score_overall: number;
@@ -116,13 +116,8 @@ class ApiClient {
     formData.append('job_description_text', data.job_description_text);
     formData.append('user_id', data.user_id);
     formData.append('interview_type', data.interview_type);
-
-    if (data.role_title) {
-      formData.append('role_title', data.role_title);
-    }
-    if (data.company_name) {
-      formData.append('company_name', data.company_name);
-    }
+    formData.append('role_title', data.role_title);
+    formData.append('company_name', data.company_name);
 
     const response = await fetch(`${this.baseUrl}/api/v1/sessions`, {
       method: 'POST',

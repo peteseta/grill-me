@@ -28,7 +28,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
   };
 
   const handleStartInterview = async () => {
-    if (!onStartInterview || !resumeFile || !jobDescription || !selectedInterviewType) {
+    if (!onStartInterview || !resumeFile || !jobDescription || !selectedInterviewType || !roleTitle || !companyName) {
       return;
     }
 
@@ -43,8 +43,8 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
         job_description_text: jobDescription,
         user_id: userId,
         interview_type: selectedInterviewType,
-        role_title: roleTitle || undefined,
-        company_name: companyName || undefined,
+        role_title: roleTitle,
+        company_name: companyName,
       });
 
       // Pass session ID to parent
@@ -62,7 +62,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
     setSelectedInterviewType(null);
   };
 
-  const canSelectInterviewType = resumeFile && jobDescription;
+  const canSelectInterviewType = resumeFile && jobDescription && roleTitle && companyName;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -126,7 +126,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
           <div>
             <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
               <Briefcase className="w-5 h-5 text-[#C14B30]" />
-              <span>Role Title (Optional)</span> // todo: make this not optional
+              <span>Role Title</span>
             </label>
             <input
               type="text"
@@ -141,7 +141,7 @@ export function UploadPage({ onStartInterview }: UploadPageProps) {
           <div>
             <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
               <Briefcase className="w-5 h-5 text-[#C14B30]" />
-              <span>Company Name (Optional)</span> // todo: make this not optional
+              <span>Company Name</span>
             </label>
             <input
               type="text"

@@ -34,7 +34,7 @@ export interface InterviewSession {
   id: string; // UUID
   user_id: string; // UUID
   role_title: string;
-  company_name?: string;
+  company_name: string;
   job_description?: string;
   interview_type: 'Technical' | 'Behavioral' | 'Mixed';
   attack_plan?: AttackPlan;
