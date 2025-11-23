@@ -18,23 +18,23 @@ import { z } from 'zod';
 const ExperienceSchema = z.object({
   company: z.string().describe('Company name'),
   title: z.string().describe('Job title'),
-  duration: z.string().optional().describe('Duration of employment'),
-  description: z.string().optional().describe('Job description or responsibilities'),
+  duration: z.string().nullable().optional().describe('Duration of employment'),
+  description: z.string().nullable().optional().describe('Job description or responsibilities'),
 });
 
 const EducationSchema = z.object({
   institution: z.string().describe('Educational institution name'),
-  degree: z.string().optional().describe('Degree or qualification'),
-  year: z.string().optional().describe('Graduation year or time period'),
+  degree: z.string().nullable().optional().describe('Degree or qualification'),
+  year: z.string().nullable().optional().describe('Graduation year or time period'),
 });
 
 const ParsedResumeSchema = z.object({
-  candidate_name: z.string().optional().describe('Full name of the candidate'),
-  email: z.string().optional().describe('Email address'),
-  phone: z.string().optional().describe('Phone number'),
-  skills: z.array(z.string()).optional().describe('List of technical and soft skills'),
-  experience: z.array(ExperienceSchema).optional().describe('Work experience history'),
-  education: z.array(EducationSchema).optional().describe('Educational background'),
+  candidate_name: z.string().nullable().optional().describe('Full name of the candidate'),
+  email: z.string().nullable().optional().describe('Email address'),
+  phone: z.string().nullable().optional().describe('Phone number'),
+  skills: z.array(z.string()).nullable().optional().describe('List of technical and soft skills'),
+  experience: z.array(ExperienceSchema).nullable().optional().describe('Work experience history'),
+  education: z.array(EducationSchema).nullable().optional().describe('Educational background'),
 });
 
 /**
@@ -117,6 +117,8 @@ Extract all relevant information accurately.`;
       format: zodTextFormat(ParsedResumeSchema, 'parsed_resume'),
     },
   });
+
+  console.log("response from resume parsing gpt:" + JSON.stringify(response));
 
   const parsedData = response.output_parsed;
 

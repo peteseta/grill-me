@@ -72,7 +72,7 @@ export async function generateAttackPlan(
   // Call OpenAI API with structured outputs
   const response = await openai.responses.parse({
     model: 'gpt-5.1',
-    reasoning_effort: 'medium',
+    reasoning: {effort: 'medium'},
     input: [
       {
         role: 'system',
@@ -87,6 +87,8 @@ export async function generateAttackPlan(
       format: zodTextFormat(AttackPlanSchema, 'attack_plan'),
     },
   });
+
+  console.log("response from attack plan generator:" + JSON.stringify(response));
 
   // Extract the parsed attack plan
   const parsedPlan = response.output_parsed;

@@ -61,7 +61,7 @@ Provide tactical advice and a suggested opening line.`;
   // Call OpenAI API with structured outputs (GPT-5.1 with 'none' reasoning for speed)
   const response = await openai.responses.parse({
     model: 'gpt-5.1',
-    reasoning_effort: 'none',
+    reasoning: {effort: 'none'},
     input: [
       {
         role: 'user',

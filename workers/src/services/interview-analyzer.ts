@@ -87,7 +87,7 @@ export async function analyzeInterview(
   // Call OpenAI API with structured outputs
   const response = await openai.responses.parse({
     model: 'gpt-5.1',
-    reasoning_effort: 'medium',
+    reasoning: {effort: 'medium'},
     input: [
       {
         role: 'system',
