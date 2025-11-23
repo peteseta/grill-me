@@ -144,23 +144,6 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               </div>
             )}
 
-            {authMode === 'signup' && (
-              <div>
-                <label className="block text-[#2C2416] mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                  disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
-                />
-              </div>
-            )}
-
             <div>
               <label className="block text-[#2C2416] mb-2">
                 Email
