@@ -13,12 +13,6 @@ import { TranscriptMessage } from '../types/database';
  * @param env - Environment variables for API keys
  * @returns Array of transcript messages with timestamps
  *
- * TODO: Implement transcript fetching
- * - Call ElevenLabs API to get conversation transcript
- * - Parse the response into TranscriptMessage[] format
- * - Include timestamps, roles, and text
- * - Handle API errors and retries
- *
  * API endpoint: GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}
  * Headers: xi-api-key: {ELEVENLABS_API_KEY}
  */
@@ -26,34 +20,93 @@ export async function fetchTranscript(
   conversationId: string,
   env: Env
 ): Promise<TranscriptMessage[]> {
-  // TODO: Implement ElevenLabs transcript fetching
-  // 1. Make GET request to ElevenLabs API
-  // 2. Parse response and extract messages
-  // 3. Transform to TranscriptMessage[] format
-  // 4. Add message indices and timestamps
+  const url = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`;
 
-  throw new Error('ElevenLabs transcript fetching not yet implemented');
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'xi-api-key': env.ELEVENLABS_API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `ElevenLabs API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.json() as {
+    transcript: Array<{
+      role: 'user' | 'agent';
+      time_in_call_secs: number;
+      message?: string | null;
+    }>;
+  };
+
+  // Transform ElevenLabs transcript format to our TranscriptMessage format
+  const transcript: TranscriptMessage[] = data.transcript
+    .map((turn, index) => ({
+      index,
+      role: turn.role,
+      text: turn.message || '', // Handle null/undefined messages
+      timestamp: turn.time_in_call_secs,
+    }))
+    .filter((msg) => msg.text.trim() !== ''); // Filter out empty messages
+
+  return transcript;
 }
 
 /**
- * Fetch the audio recording URL from ElevenLabs
+ * Fetch the audio recording from ElevenLabs and store it in R2
  *
  * @param conversationId - The ElevenLabs conversation ID
  * @param env - Environment variables for API keys
- * @returns URL to the audio recording
+ * @returns R2 storage key for the audio file, or null if AUDIO_BUCKET is not configured
  *
- * TODO: Implement audio URL fetching
- * - Get the audio recording URL from ElevenLabs
- * - May need to download and upload to R2/Supabase storage
+ * API endpoint: GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}/audio
+ * Headers: xi-api-key: {ELEVENLABS_API_KEY}
  */
 export async function fetchAudioUrl(
   conversationId: string,
   env: Env
 ): Promise<string | null> {
-  // TODO: Implement audio URL fetching
-  // 1. Get audio URL from ElevenLabs API
-  // 2. Optionally download and re-upload to your storage
-  // 3. Return permanent URL
+  // Check if R2 storage bucket is configured
+  if (!env.AUDIO_BUCKET) {
+    console.warn('AUDIO_BUCKET not configured, skipping audio storage');
+    return null;
+  }
 
-  throw new Error('ElevenLabs audio URL fetching not yet implemented');
+  const url = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`;
+
+  // Fetch the audio data from ElevenLabs
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'xi-api-key': env.ELEVENLABS_API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `ElevenLabs audio API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  // Get the audio data as ArrayBuffer
+  const audioData = await response.arrayBuffer();
+
+  // Generate a unique key for R2 storage
+  const audioKey = `conversations/${conversationId}.mp3`;
+
+  // Upload to R2 bucket
+  await env.AUDIO_BUCKET.put(audioKey, audioData, {
+    httpMetadata: {
+      contentType: 'audio/mpeg',
+    },
+  });
+
+  // Return the R2 URL (this would need to be configured with a public domain)
+  // For now, return the key that can be used to retrieve the file
+  // In production, you'd configure R2 with a custom domain and return the full URL
+  return audioKey;
 }
