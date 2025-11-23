@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Upload, History, Mic, LogOut } from 'lucide-react';
+import { Upload, History, Mic, LogOut, TestTube } from 'lucide-react';
 import { LandingPage } from './components/landing-page';
 import { UploadPage } from './components/upload-page';
 import { InterviewPage } from './components/interview-page';
 import { HistoryPage } from './components/history-page';
 import { InterviewDetail } from './components/interview-detail';
+import { ApiTestPage } from './components/api-test-page';
 import { AuthProvider, useAuth } from './lib/auth';
 
-type Tab = 'upload' | 'history';
+type Tab = 'upload' | 'history' | 'api-test';
 
 export interface Interview {
   id: string;
@@ -128,6 +129,17 @@ function AppContent() {
               <History className="w-5 h-5" />
               <span>Interview History</span>
             </button>
+            <button
+              onClick={() => setActiveTab('api-test')}
+              className={`flex items-center gap-2 py-4 px-1 border-b-2 transition-all ${
+                activeTab === 'api-test'
+                  ? 'border-[#C14B30] text-[#C14B30]'
+                  : 'border-transparent text-[#6B5D4F] hover:text-[#2C2416] hover:border-[#C14B30]/30'
+              }`}
+            >
+              <TestTube className="w-5 h-5" />
+              <span>API Test</span>
+            </button>
           </nav>
         </div>
       </div>
@@ -136,6 +148,7 @@ function AppContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {activeTab === 'upload' && <UploadPage onStartInterview={handleStartInterview} />}
         {activeTab === 'history' && <HistoryPage onViewInterview={handleViewInterview} />}
+        {activeTab === 'api-test' && <ApiTestPage />}
       </main>
     </div>
   );

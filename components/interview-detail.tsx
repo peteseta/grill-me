@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Play, Pause, AlertCircle, CheckCircle, Star, SkipBack, SkipForward } from 'lucide-react';
+import { ArrowLeft, Play, Pause, AlertCircle, CheckCircle, Star, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Interview } from '../App';
+import { apiClient, AnalyzeSessionResponse } from '../lib/api-client';
 
 interface Timestamp {
   time: number;
@@ -68,40 +69,85 @@ interface InterviewDetailProps {
 export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(952);
-  const audioRef = useRef<HTMLDivElement>(null);
+  const [duration, setDuration] = useState(952);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [sessionData, setSessionData] = useState<AnalyzeSessionResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch session results on mount
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return duration;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, duration]);
+    const loadSessionResults = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const results = await apiClient.getSessionResults(interview.id);
+        setSessionData(results);
+      } catch (err) {
+        console.error('Failed to load session results:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load session details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSessionResults();
+  }, [interview.id]);
+
+  // Sync audio player state
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(Math.floor(audio.currentTime));
+    const updateDuration = () => setDuration(Math.floor(audio.duration));
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [sessionData?.audio_url]);
 
   const togglePlayPause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
     setIsPlaying(!isPlaying);
   };
 
   const jumpToTime = (time: number) => {
-    setCurrentTime(time);
-    setIsPlaying(true);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.currentTime = time;
+    if (!isPlaying) {
+      audio.play();
+      setIsPlaying(true);
+    }
   };
 
   const skipBackward = () => {
-    setCurrentTime(Math.max(0, currentTime - 15));
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, audio.currentTime - 15);
   };
 
   const skipForward = () => {
-    setCurrentTime(Math.min(duration, currentTime + 15));
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.min(duration, audio.currentTime + 15);
   };
 
   const formatTime = (seconds: number) => {
@@ -120,8 +166,56 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
     });
   };
 
-  const blunders = mockTimestamps.filter(t => t.type === 'blunder');
-  const excellentMoments = mockTimestamps.filter(t => t.type === 'excellent');
+  // Transform structured feedback into timestamps
+  const timestamps: Timestamp[] = sessionData?.structured_feedback.map((feedback) => ({
+    time: feedback.target_message_index * 30, // Approximate: assuming 30 seconds per message
+    type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
+    title: feedback.category,
+    description: feedback.feedback,
+  })) || [];
+
+  const blunders = timestamps.filter(t => t.type === 'blunder'); // Includes 'warning' and 'negative'
+  const excellentMoments = timestamps.filter(t => t.type === 'excellent'); // Only 'positive'
+
+  // Display loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#C14B30] animate-spin mx-auto mb-4" />
+          <p className="text-[#6B5D4F]">Loading interview details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Display error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E8] p-8">
+        <div className="max-w-2xl mx-auto">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 text-[#6B5D4F] hover:text-[#2C2416] transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to History</span>
+          </button>
+          <div className="bg-[#C14B30]/10 border-2 border-[#C14B30]/30 rounded-2xl p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-[#C14B30] mx-auto mb-4" />
+            <p className="text-[#C14B30] font-medium mb-2">Failed to load interview details</p>
+            <p className="text-[#6B5D4F] mb-4">{error}</p>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F1E8]">
@@ -137,16 +231,43 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
           </button>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>{interview.position}</h1>
-              <p className="text-[#6B5D4F] mb-1">{interview.company}</p>
-              <p className="text-[#6B5D4F] italic">{formatDate(interview.date)}</p>
+              <h1 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+                {sessionData?.role_title || interview.position}
+              </h1>
+              <p className="text-[#6B5D4F] mb-1">
+                {sessionData?.company_name || interview.company}
+              </p>
+              <p className="text-[#6B5D4F] italic">
+                {formatDate(sessionData?.created_at || interview.date)}
+              </p>
             </div>
             <div className="text-right">
-              <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl mb-2">
-                <Star className="w-6 h-6 text-[#C14B30]" />
-                <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Score: {interview.score}%</span>
+              <div className="space-y-2">
+                {sessionData?.metrics ? (
+                  <>
+                    <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                      <Star className="w-6 h-6 text-[#C14B30]" />
+                      <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>
+                        Overall: {Math.round(sessionData.metrics.score_overall * 10)}%
+                      </span>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <div className="px-4 py-2 bg-[#5A7C6F]/10 border-2 border-[#5A7C6F]/20 rounded-xl text-sm">
+                        <span className="text-[#5A7C6F] font-medium">Technical: {sessionData.metrics.score_technical}%</span>
+                      </div>
+                      <div className="px-4 py-2 bg-[#D4845C]/10 border-2 border-[#D4845C]/20 rounded-xl text-sm">
+                        <span className="text-[#D4845C] font-medium">BS Detector: {100 - sessionData.metrics.score_bullshit}%</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                    <Star className="w-6 h-6 text-[#C14B30]" />
+                    <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Score: TODO</span>
+                  </div>
+                )}
               </div>
-              <p className="text-[#6B5D4F]">Duration: {interview.duration}</p>
+              <p className="text-[#6B5D4F] mt-3">Duration: {interview.duration}</p>
             </div>
           </div>
         </div>
@@ -159,7 +280,20 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
             {/* Voice Memo Style Player */}
             <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10">
               <h2 className="text-[#2C2416] mb-8" style={{ fontFamily: 'var(--font-serif)' }}>Recording Playback</h2>
-              
+
+              {/* Hidden Audio Element */}
+              {sessionData?.audio_url && (
+                <audio ref={audioRef} src={sessionData.audio_url} preload="metadata" />
+              )}
+
+              {!sessionData?.audio_url && (
+                <div className="text-center py-12 text-[#6B5D4F]">
+                  <p>Audio recording not available for this interview.</p>
+                </div>
+              )}
+
+              {sessionData?.audio_url && (
+                <>
               {/* Waveform Visualization */}
               <div className="relative h-36 bg-[#F5F1E8] rounded-2xl mb-8 flex items-center justify-center px-4 border-2 border-[#2C2416]/5">
                 <div className="flex items-center gap-1 h-full w-full">
@@ -233,6 +367,8 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   <SkipForward className="w-6 h-6 text-[#2C2416]" />
                 </button>
               </div>
+              </>
+              )}
             </div>
 
             {/* Summary Stats */}
@@ -258,9 +394,14 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
           <div className="space-y-6">
             <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-8">
               <h2 className="text-[#2C2416] mb-8" style={{ fontFamily: 'var(--font-serif)' }}>Key Moments</h2>
-              
+
               <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                {mockTimestamps.map((timestamp, index) => (
+                {timestamps.length === 0 ? (
+                  <div className="text-center py-12 text-[#6B5D4F]">
+                    <p>No feedback moments available yet.</p>
+                  </div>
+                ) : (
+                  timestamps.map((timestamp, index) => (
                   <button
                     key={index}
                     onClick={() => jumpToTime(timestamp.time)}
@@ -307,7 +448,8 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                       </div>
                     </div>
                   </button>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -316,56 +458,50 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
         {/* Overall Feedback */}
         <div className="mt-10 bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10">
           <h2 className="text-[#2C2416] mb-8" style={{ fontFamily: 'var(--font-serif)' }}>Overall Feedback</h2>
-          <div className="grid md:grid-cols-2 gap-10">
-            <div className="bg-[#5A7C6F]/5 rounded-2xl p-8 border-2 border-[#5A7C6F]/20">
-              <h3 className="text-[#5A7C6F] mb-5 flex items-center gap-3" style={{ fontFamily: 'var(--font-serif)' }}>
-                <CheckCircle className="w-6 h-6" strokeWidth={2.5} />
-                Strengths
-              </h3>
-              <ul className="text-[#2C2416] space-y-3 leading-relaxed">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#5A7C6F] mt-1">•</span>
-                  <span>Demonstrated strong technical knowledge and real-world experience</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#5A7C6F] mt-1">•</span>
-                  <span>Used specific examples with measurable outcomes</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#5A7C6F] mt-1">•</span>
-                  <span>Asked insightful questions about the role and company</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#5A7C6F] mt-1">•</span>
-                  <span>Maintained good energy and enthusiasm throughout</span>
-                </li>
-              </ul>
+          {sessionData?.summary_feedback ? (
+            <div className="bg-[#F5F1E8] rounded-2xl p-8 border-2 border-[#2C2416]/10">
+              <p className="text-[#2C2416] leading-relaxed whitespace-pre-wrap">
+                {sessionData.summary_feedback}
+              </p>
             </div>
-            <div className="bg-[#C14B30]/5 rounded-2xl p-8 border-2 border-[#C14B30]/20">
-              <h3 className="text-[#C14B30] mb-5 flex items-center gap-3" style={{ fontFamily: 'var(--font-serif)' }}>
-                <AlertCircle className="w-6 h-6" strokeWidth={2.5} />
-                Areas for Improvement
-              </h3>
-              <ul className="text-[#2C2416] space-y-3 leading-relaxed">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#C14B30] mt-1">•</span>
-                  <span>Reduce filler words and practice smoother delivery</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#C14B30] mt-1">•</span>
-                  <span>Keep responses more concise - aim for 2-3 minutes per answer</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#C14B30] mt-1">•</span>
-                  <span>Avoid negative language when discussing past experiences</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#C14B30] mt-1">•</span>
-                  <span>Practice structuring answers using the STAR method consistently</span>
-                </li>
-              </ul>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-10">
+              <div className="bg-[#5A7C6F]/5 rounded-2xl p-8 border-2 border-[#5A7C6F]/20">
+                <h3 className="text-[#5A7C6F] mb-5 flex items-center gap-3" style={{ fontFamily: 'var(--font-serif)' }}>
+                  <CheckCircle className="w-6 h-6" strokeWidth={2.5} />
+                  Positive Feedback
+                </h3>
+                <ul className="text-[#2C2416] space-y-3 leading-relaxed">
+                  {excellentMoments.slice(0, 4).map((moment, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="text-[#5A7C6F] mt-1">•</span>
+                      <span>{moment.description}</span>
+                    </li>
+                  ))}
+                  {excellentMoments.length === 0 && (
+                    <li className="text-[#6B5D4F]">No positive feedback available yet.</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-[#C14B30]/5 rounded-2xl p-8 border-2 border-[#C14B30]/20">
+                <h3 className="text-[#C14B30] mb-5 flex items-center gap-3" style={{ fontFamily: 'var(--font-serif)' }}>
+                  <AlertCircle className="w-6 h-6" strokeWidth={2.5} />
+                  Areas for Improvement
+                </h3>
+                <ul className="text-[#2C2416] space-y-3 leading-relaxed">
+                  {blunders.slice(0, 4).map((blunder, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="text-[#C14B30] mt-1">•</span>
+                      <span>{blunder.description}</span>
+                    </li>
+                  ))}
+                  {blunders.length === 0 && (
+                    <li className="text-[#6B5D4F]">No improvement areas identified yet.</li>
+                  )}
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>

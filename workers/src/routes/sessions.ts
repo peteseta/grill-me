@@ -115,7 +115,8 @@ export async function listSessions(c: Context<{ Bindings: Env }>): Promise<Respo
         status,
         interview_analyses (
           score_overall,
-          score_bullshit
+          score_bullshit,
+          score_technical
         )
       `)
       .eq('user_id', userId)
@@ -133,6 +134,7 @@ export async function listSessions(c: Context<{ Bindings: Env }>): Promise<Respo
       scores: session.interview_analyses?.[0] ? {
         score_overall: session.interview_analyses[0].score_overall,
         score_bullshit: session.interview_analyses[0].score_bullshit,
+        score_technical: session.interview_analyses[0].score_technical,
       } : null,
     }));
 

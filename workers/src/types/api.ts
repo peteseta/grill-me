@@ -60,6 +60,9 @@ export interface AnalyzeSessionRequest {
 
 export interface AnalyzeSessionResponse {
   session_id: string;
+  role_title: string;
+  company_name?: string;
+  created_at: string;
   metrics: {
     score_overall: number; // 1-10
     score_bullshit: number; // 0-100 (high = bad)
@@ -68,6 +71,7 @@ export interface AnalyzeSessionResponse {
   summary_feedback: string;
   full_transcript_json: TranscriptMessage[];
   structured_feedback: StructuredFeedbackItem[];
+  audio_url?: string;
 }
 
 /**
@@ -82,6 +86,7 @@ export interface SessionListItem {
   scores?: {
     score_overall: number;
     score_bullshit: number;
+    score_technical: number;
   } | null;
 }
 
