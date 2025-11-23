@@ -7,7 +7,7 @@
 import { Context } from 'hono';
 import { Env } from '../types/env';
 import { CreateSessionResponse, SessionListResponse } from '../types/api';
-import { getSupabaseClient } from '../utils/supabase';
+import { getSupabaseClient, Database } from '../utils/supabase';
 import { parseResume } from '../services/resume-parser';
 import { generateAttackPlan } from '../services/attack-plan-generator';
 import { success, created, badRequest, notFound } from '../utils/response';
@@ -26,62 +26,76 @@ import { success, created, badRequest, notFound } from '../utils/response';
  */
 export async function createSession(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
-    // TODO: Parse multipart form data
-    // const formData = await c.req.formData();
-    // const resume = formData.get('resume') as File;
-    // const jobDescription = formData.get('job_description_text') as string;
-    // const userId = formData.get('user_id') as string;
-    // const interviewType = formData.get('interview_type') as string;
-    // const roleTitle = formData.get('role_title') as string;
-    // const companyName = formData.get('company_name') as string;
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const resumeEntry = formData.get('resume');
+    const jobDescription = formData.get('job_description_text') as string;
+    const userId = formData.get('user_id') as string;
+    const interviewType = formData.get('interview_type') as string;
+    const roleTitle = formData.get('role_title') as string;
+    const companyName = formData.get('company_name') as string;
 
-    // TODO: Validate inputs
-    // if (!resume || !jobDescription || !userId || !interviewType) {
-    //   return badRequest('Missing required fields');
-    // }
+    // Validate inputs
+    if (!resumeEntry || !jobDescription || !userId || !interviewType) {
+      return badRequest('Missing required fields: resume, job_description_text, user_id, and interview_type are required');
+    }
 
-    // TODO: Parse resume
-    // const parsedResume = await parseResume(resume, c.env);
+    // Validate resume is a File (check if it has file-like properties)
+    if (typeof resumeEntry === 'string') {
+      return badRequest('resume must be a file, not a string');
+    }
 
-    // TODO: Generate attack plan
-    // const attackPlan = await generateAttackPlan({
-    //   resume: parsedResume,
-    //   jobDescription,
-    //   roleTitle,
-    //   companyName,
-    //   interviewType: interviewType as any,
-    // }, c.env);
+    const resume = resumeEntry as File;
 
-    // TODO: Create session in database
-    // const supabase = getSupabaseClient(c.env);
-    // const { data, error } = await supabase
-    //   .from('interview_sessions')
-    //   .insert({
-    //     user_id: userId,
-    //     role_title: roleTitle,
-    //     company_name: companyName,
-    //     job_description: jobDescription,
-    //     interview_type: interviewType as any,
-    //     attack_plan: attackPlan,
-    //     status: 'ready',
-    //     resume_text: parsedResume.raw_text,
-    //   })
-    //   .select()
-    //   .single();
+    // Validate interview_type
+    if (!['Technical', 'Behavioral', 'Mixed'].includes(interviewType)) {
+      return badRequest('interview_type must be one of: Technical, Behavioral, Mixed');
+    }
 
-    // if (error) throw error;
+    // Parse resume
+    const parsedResume = await parseResume(resume, c.env);
 
-    // TODO: Return response
-    // const response: CreateSessionResponse = {
-    //   session_id: data.id,
-    //   status: 'ready',
-    // };
-    // return created(response);
+    // Generate attack plan
+    const attackPlan = await generateAttackPlan({
+      resume: parsedResume,
+      jobDescription,
+      roleTitle: roleTitle || 'Candidate',
+      companyName,
+      interviewType: interviewType as 'Technical' | 'Behavioral' | 'Mixed',
+    }, c.env);
 
-    return badRequest('Session creation not yet implemented');
+    // Create session in database
+    const supabase = getSupabaseClient(c.env);
+
+    const sessionData: Database['public']['Tables']['interview_sessions']['Insert'] = {
+      user_id: userId,
+      role_title: roleTitle || 'Candidate',
+      company_name: companyName,
+      job_description: jobDescription,
+      interview_type: interviewType as 'Technical' | 'Behavioral' | 'Mixed',
+      attack_plan: attackPlan,
+      status: 'ready',
+      resume_text: parsedResume.raw_text,
+    };
+
+    const result: any = await supabase
+      .from('interview_sessions')
+      .insert(sessionData as any)
+      .select()
+      .single();
+
+    if (result.error) throw result.error;
+    if (!result.data) throw new Error('No data returned from insert');
+
+    // Return response
+    const response: CreateSessionResponse = {
+      session_id: result.data.id,
+      status: 'ready',
+    };
+    return created(response);
   } catch (error) {
     console.error('Error creating session:', error);
-    return badRequest('Failed to create session');
+    return badRequest(`Failed to create session: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -98,50 +112,48 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
  */
 export async function listSessions(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
-    // TODO: Get user_id from query params
-    // const userId = c.req.query('user_id');
-    // if (!userId) {
-    //   return badRequest('Missing user_id query parameter');
-    // }
+    // Get user_id from query params
+    const userId = c.req.query('user_id');
+    if (!userId) {
+      return badRequest('Missing user_id query parameter');
+    }
 
-    // TODO: Query sessions from database
-    // const supabase = getSupabaseClient(c.env);
-    // const { data: sessions, error } = await supabase
-    //   .from('interview_sessions')
-    //   .select(`
-    //     id,
-    //     created_at,
-    //     role_title,
-    //     company_name,
-    //     status,
-    //     interview_analyses (
-    //       score_overall,
-    //       score_bullshit
-    //     )
-    //   `)
-    //   .eq('user_id', userId)
-    //   .order('created_at', { ascending: false });
+    // Query sessions from database
+    const supabase = getSupabaseClient(c.env);
+    const { data: sessions, error } = await supabase
+      .from('interview_sessions')
+      .select(`
+        id,
+        created_at,
+        role_title,
+        company_name,
+        status,
+        interview_analyses (
+          score_overall,
+          score_bullshit
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-    // if (error) throw error;
+    if (error) throw error;
 
-    // TODO: Transform to API response format
-    // const response: SessionListResponse = sessions.map(session => ({
-    //   session_id: session.id,
-    //   created_at: session.created_at,
-    //   role_title: session.role_title,
-    //   company_name: session.company_name,
-    //   status: session.status,
-    //   scores: session.interview_analyses?.[0] ? {
-    //     score_overall: session.interview_analyses[0].score_overall,
-    //     score_bullshit: session.interview_analyses[0].score_bullshit,
-    //   } : null,
-    // }));
+    // Transform to API response format
+    const response: SessionListResponse = sessions.map((session: any) => ({
+      session_id: session.id,
+      created_at: session.created_at,
+      role_title: session.role_title,
+      company_name: session.company_name,
+      status: session.status,
+      scores: session.interview_analyses?.[0] ? {
+        score_overall: session.interview_analyses[0].score_overall,
+        score_bullshit: session.interview_analyses[0].score_bullshit,
+      } : null,
+    }));
 
-    // return success(response);
-
-    return badRequest('Session listing not yet implemented');
+    return success(response);
   } catch (error) {
     console.error('Error listing sessions:', error);
-    return badRequest('Failed to list sessions');
+    return badRequest(`Failed to list sessions: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
