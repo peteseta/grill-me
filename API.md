@@ -46,7 +46,9 @@ This endpoint provides the frontend with the specific variable values needed to 
           "probing_questions": ["Did you validate this with users?"]
         }
       ]
-    }
+    },
+    
+    "RESUME_TEXT": "[parsed resume content]"
   }
 }
 ```
@@ -104,6 +106,7 @@ Called when the user hits "Pause" and asks for help.
 This endpoint performs two tasks:
 1. Fetches the "official" high-quality transcript from ElevenLabs servers using the `conversation_id`.
 2. Sends that transcript to the Reasoning LLM (Gemini/GPT-4o) to generate the JSON feedback.
+3. Stores the feedback in the interview_analyses table for future retrieval
 
 ### `POST /api/v1/sessions/{session_id}/analyze`
 
@@ -123,9 +126,8 @@ This endpoint performs two tasks:
       "session_id": "sess_12345",
       "metrics": {
         "overall_score": 7, // 1-10
-        "bullshit_meter": 65, // 0-100 (High = Bad)
-        "waffle_score": 40, // 0-100 (High = Bad)
-        "technical_accuracy": 8
+        "bullshit_meter": 65, // 0-100 (high = bad)
+        "technical_accuracy": 80 // 0-100 (high = good)
       },
       "summary_feedback": "Strong technical foundation, but you struggled to justify business value...",
       
