@@ -40,15 +40,12 @@ export async function getSessionConfig(c: Context<{ Bindings: Env }>): Promise<R
       return badRequest('Session is not ready');
     }
 
-    // Extract candidate name from resume (simple heuristic or use parsed data)
-    const candidateName = extractCandidateName(session.resume_text) || 'Candidate';
-
     // Build response
     const response: SessionConfigResponse = {
       agent_id: c.env.ELEVENLABS_AGENT_ID,
       dynamic_variables: {
         ROLE_TITLE: session.role_title,
-        CANDIDATE_NAME: candidateName,
+        CANDIDATE_NAME: session.candidate_name || 'Candidate',
         COMPANY_NAME: session.company_name || 'the company',
         INTERVIEW_TYPE: session.interview_type,
         ATTACK_PLAN_JSON: session.attack_plan,
@@ -71,27 +68,3 @@ export async function getSessionConfig(c: Context<{ Bindings: Env }>): Promise<R
   }
 }
 
-/**
- * Helper function to extract candidate name from resume text
- * Uses a simple heuristic: looks for the first line with 2-4 capitalized words
- */
-function extractCandidateName(resumeText?: string): string | null {
-  if (!resumeText) return null;
-
-  // Simple heuristic: take first line or first capitalized words
-  const lines = resumeText.trim().split('\n');
-  const firstLine = lines[0]?.trim();
-
-  if (!firstLine) return null;
-
-  // If first line looks like a name (2-4 words, all capitalized)
-  const words = firstLine.split(/\s+/);
-  if (words.length >= 2 && words.length <= 4) {
-    const allCapitalized = words.every(w => /^[A-Z]/.test(w));
-    if (allCapitalized) {
-      return words.slice(0, 2).join(' '); // Return first two words as name
-    }
-  }
-
-  return null;
-}

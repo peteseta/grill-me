@@ -21,6 +21,7 @@ export interface InterviewSession {
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
   resume_text?: string;
+  candidate_name?: string;
 }
 
 export interface InterviewAnalysis {
