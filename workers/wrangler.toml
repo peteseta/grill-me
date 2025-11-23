@@ -40,8 +40,8 @@ vars = { ENVIRONMENT = "production" }
 # preview_id = "your-preview-kv-namespace-id"
 
 # Limits and configuration
-[limits]
-cpu_ms = 30000 # 30 seconds max CPU time (for LLM calls)
+# [limits]
+# cpu_ms = 30000 # 30 seconds max CPU time (for LLM calls)
 
 # Observability (optional)
 [observability]
