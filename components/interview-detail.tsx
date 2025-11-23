@@ -10,6 +10,73 @@ interface Timestamp {
   description: string;
 }
 
+interface WaveformData {
+  heights: number[];
+  isAnalyzed: boolean;
+}
+
+/**
+ * Analyzes an audio file and extracts waveform data using Web Audio API
+ * @param audioUrl - URL of the audio file to analyze
+ * @param barCount - Number of bars to generate (default: 60)
+ * @returns Promise with normalized waveform heights (20-80% range)
+ */
+async function analyzeAudioWaveform(audioUrl: string, barCount: number = 60): Promise<number[]> {
+  try {
+    // Fetch the audio file
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+
+    // Create audio context
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Decode audio data
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    // Get raw audio data from the first channel
+    const rawData = audioBuffer.getChannelData(0);
+    const samples = rawData.length;
+    const samplesPerBar = Math.floor(samples / barCount);
+    const heights: number[] = [];
+
+    // Calculate average amplitude for each segment
+    for (let i = 0; i < barCount; i++) {
+      const start = i * samplesPerBar;
+      const end = start + samplesPerBar;
+      let sum = 0;
+
+      // Calculate RMS (Root Mean Square) for better waveform representation
+      for (let j = start; j < end && j < samples; j++) {
+        sum += rawData[j] * rawData[j];
+      }
+
+      const rms = Math.sqrt(sum / samplesPerBar);
+      heights.push(rms);
+    }
+
+    // Find max value for normalization
+    const maxHeight = Math.max(...heights);
+
+    // Normalize to 20-80% range
+    const normalizedHeights = heights.map(height => {
+      if (maxHeight === 0) return 50; // Default to middle if silent
+      const normalized = (height / maxHeight) * 60 + 20; // Scale to 20-80 range
+      return Math.min(80, Math.max(20, normalized)); // Clamp to range
+    });
+
+    // Clean up audio context
+    await audioContext.close();
+
+    return normalizedHeights;
+  } catch (error) {
+    console.error('Error analyzing audio waveform:', error);
+    throw error;
+  }
+}
+
 const mockTimestamps: Timestamp[] = [
   {
     time: 45,
@@ -74,21 +141,26 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
   const [sessionData, setSessionData] = useState<AnalyzeSessionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
+  const [isAnalyzingWaveform, setIsAnalyzingWaveform] = useState(false);
 
-  // Generate stable waveform pattern based on interview ID
-  const waveformHeights = useMemo(() => {
+  // Generate stable fallback waveform pattern based on interview ID
+  const fallbackWaveformHeights = useMemo(() => {
     // Use interview ID as seed for consistent pattern
     const seed = interview.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const heights: number[] = [];
-    
+
     for (let i = 0; i < 60; i++) {
       // Seeded pseudo-random using sine function
       const value = Math.abs(Math.sin(seed + i * 0.5)) * 60 + 20;
       heights.push(value);
     }
-    
+
     return heights;
   }, [interview.id]);
+
+  // Use analyzed waveform data or fallback to seeded pattern
+  const waveformHeights = waveformData?.isAnalyzed ? waveformData.heights : fallbackWaveformHeights;
 
   // Fetch session results on mount
   useEffect(() => {
@@ -129,6 +201,37 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
       audio.removeEventListener('ended', handleEnded);
     };
   }, [sessionData?.audio_url]);
+
+  // Analyze audio waveform when audio URL is available
+  useEffect(() => {
+    const analyzeWaveform = async () => {
+      if (!sessionData?.audio_url) return;
+
+      // Skip if already analyzed for this audio URL
+      if (waveformData?.isAnalyzed) return;
+
+      setIsAnalyzingWaveform(true);
+
+      try {
+        const heights = await analyzeAudioWaveform(sessionData.audio_url, 60);
+        setWaveformData({
+          heights,
+          isAnalyzed: true,
+        });
+      } catch (error) {
+        console.error('Failed to analyze audio waveform:', error);
+        // Fallback to seeded pattern on error
+        setWaveformData({
+          heights: fallbackWaveformHeights,
+          isAnalyzed: false,
+        });
+      } finally {
+        setIsAnalyzingWaveform(false);
+      }
+    };
+
+    analyzeWaveform();
+  }, [sessionData?.audio_url, fallbackWaveformHeights, waveformData?.isAnalyzed]);
 
   const togglePlayPause = () => {
     const audio = audioRef.current;
@@ -311,21 +414,28 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                 <>
               {/* Waveform Visualization */}
               <div className="relative h-36 bg-[#F5F1E8] rounded-2xl mb-8 flex items-center justify-center px-4 border-2 border-[#2C2416]/5">
-                <div className="flex items-center gap-1 h-full w-full">
-                  {waveformHeights.map((height, i) => {
-                    const isActive = (i / 60) * duration <= currentTime;
-                    return (
-                      <div
-                        key={i}
-                        className={`flex-1 rounded-full transition-all cursor-pointer ${
-                          isActive ? 'bg-[#C14B30] shadow-sm' : 'bg-[#E8E3D6]'
-                        }`}
-                        style={{ height: `${height}%` }}
-                        onClick={() => jumpToTime((i / 60) * duration)}
-                      />
-                    );
-                  })}
-                </div>
+                {isAnalyzingWaveform ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-8 h-8 text-[#C14B30] animate-spin" />
+                    <p className="text-[#6B5D4F] text-sm">Analyzing audio waveform...</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 h-full w-full">
+                    {waveformHeights.map((height, i) => {
+                      const isActive = (i / 60) * duration <= currentTime;
+                      return (
+                        <div
+                          key={i}
+                          className={`flex-1 rounded-full transition-all cursor-pointer ${
+                            isActive ? 'bg-[#C14B30] shadow-sm' : 'bg-[#E8E3D6]'
+                          }`}
+                          style={{ height: `${height}%` }}
+                          onClick={() => jumpToTime((i / 60) * duration)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Time Display */}
