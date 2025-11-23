@@ -18,8 +18,8 @@ export interface AttackPlanInput {
 /**
  * Generate an attack plan for the interview
  *
- * Uses a reasoning LLM (Anthropic Claude, OpenAI GPT-4, or Google Gemini) to analyze
- * the candidate's resume against job requirements and generate a strategic interview plan.
+ * Uses OpenAI's GPT-4 to analyze the candidate's resume against job requirements
+ * and generate a strategic interview plan.
  *
  * The generated plan includes:
  * - Difficulty level based on role seniority
@@ -27,28 +27,22 @@ export interface AttackPlanInput {
  * - Specific probing questions for each focus area
  *
  * @param input - Resume, job description, and interview parameters
- * @param env - Environment variables for API keys
+ * @param env - Environment variables (requires OPENAI_API_KEY)
  * @returns Attack plan with focus areas and probing questions
  */
 export async function generateAttackPlan(
   input: AttackPlanInput,
   env: Env
 ): Promise<AttackPlan> {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is required for attack plan generation');
+  }
+
   // Construct the prompt for the LLM
   const prompt = buildAttackPlanPrompt(input);
 
-  // Try to call available LLM APIs in order of preference
-  let attackPlanJson: string;
-
-  if (env.ANTHROPIC_API_KEY) {
-    attackPlanJson = await callAnthropicAPI(prompt, env.ANTHROPIC_API_KEY);
-  } else if (env.OPENAI_API_KEY) {
-    attackPlanJson = await callOpenAIAPI(prompt, env.OPENAI_API_KEY);
-  } else if (env.GOOGLE_API_KEY) {
-    attackPlanJson = await callGoogleAPI(prompt, env.GOOGLE_API_KEY);
-  } else {
-    throw new Error('No LLM API key configured. Please set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY.');
-  }
+  // Call OpenAI API
+  const attackPlanJson = await callOpenAIAPI(prompt, env.OPENAI_API_KEY);
 
   // Parse and validate the response
   const attackPlan = parseAndValidateAttackPlan(attackPlanJson);
@@ -124,41 +118,6 @@ Example of a Good Focus Area (for a PM role):
 }
 
 /**
- * Call Anthropic's Claude API
- */
-async function callAnthropicAPI(prompt: string, apiKey: string): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Anthropic API error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json() as {
-    content: Array<{ type: string; text: string }>;
-  };
-
-  return data.content[0].text;
-}
-
-/**
  * Call OpenAI's GPT-4 API
  */
 async function callOpenAIAPI(prompt: string, apiKey: string): Promise<string> {
@@ -195,51 +154,6 @@ async function callOpenAIAPI(prompt: string, apiKey: string): Promise<string> {
   };
 
   return data.choices[0].message.content;
-}
-
-/**
- * Call Google's Gemini API
- */
-async function callGoogleAPI(prompt: string, apiKey: string): Promise<string> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2000,
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Google API error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json() as {
-    candidates: Array<{
-      content: {
-        parts: Array<{ text: string }>;
-      };
-    }>;
-  };
-
-  return data.candidates[0].content.parts[0].text;
 }
 
 /**
