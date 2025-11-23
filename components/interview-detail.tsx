@@ -77,56 +77,6 @@ async function analyzeAudioWaveform(audioUrl: string, barCount: number = 60): Pr
   }
 }
 
-const mockTimestamps: Timestamp[] = [
-  {
-    time: 45,
-    type: 'excellent',
-    title: 'Strong Opening',
-    description: 'Clear and confident introduction with relevant experience highlighted',
-  },
-  {
-    time: 128,
-    type: 'blunder',
-    title: 'Filler Words',
-    description: 'Excessive use of "um" and "like" - practice speaking more smoothly',
-  },
-  {
-    time: 203,
-    type: 'excellent',
-    title: 'STAR Method',
-    description: 'Excellent use of Situation-Task-Action-Result framework',
-  },
-  {
-    time: 347,
-    type: 'blunder',
-    title: 'Rambling Response',
-    description: 'Answer lacked focus and went over 3 minutes - be more concise',
-  },
-  {
-    time: 456,
-    type: 'excellent',
-    title: 'Technical Expertise',
-    description: 'Demonstrated deep knowledge of React and modern web technologies',
-  },
-  {
-    time: 582,
-    type: 'blunder',
-    title: 'Negative Language',
-    description: 'Used negative framing when discussing previous employer',
-  },
-  {
-    time: 721,
-    type: 'excellent',
-    title: 'Strong Examples',
-    description: 'Provided specific metrics and measurable outcomes',
-  },
-  {
-    time: 890,
-    type: 'excellent',
-    title: 'Great Questions',
-    description: 'Asked thoughtful questions about team culture and growth opportunities',
-  },
-];
 
 interface InterviewDetailProps {
   interview: Interview;

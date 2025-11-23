@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, X, Play, Pause, AlertCircle, Loader2 } from 'lucide-react';
+import { Mic, X, Pause, AlertCircle, Loader2 } from 'lucide-react';
 import { Conversation } from '@elevenlabs/client';
 import { apiClient } from '../lib/api-client';
 
@@ -12,7 +12,7 @@ interface InterviewPageProps {
 
 export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [interviewState, setInterviewState] = useState<InterviewState>('loading');
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [currentQuestion, _setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(0);
