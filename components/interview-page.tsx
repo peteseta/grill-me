@@ -20,7 +20,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentConfig, setAgentConfig] = useState<any>(null);
   const conversationRef = useRef<Conversation | null>(null);
-  const isInitializingRef = useRef<boolean>(false);
+  const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
 
   // Mock questions for now - these will come from ElevenLabs
   const mockQuestions = [
@@ -32,13 +32,113 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   ];
 
   useEffect(() => {
-    loadSessionConfig();
+    let cancelled = false;
 
-    // Cleanup on unmount - end the conversation if it exists
-    // Note: DO NOT reset isInitializingRef here as it would allow Strict Mode's
-    // unmount/remount cycle to create duplicate connections
+    const initializeInterview = async () => {
+      // Prevent duplicate initialization - check for active or pending connections
+      if (conversationRef.current || pendingConversationRef.current) {
+        console.log('Conversation already exists or is being created, skipping initialization');
+        return;
+      }
+
+      try {
+        setInterviewState('loading');
+
+        // Fetch session config
+        const config = await apiClient.getSessionConfig(sessionId);
+        if (cancelled) {
+          console.log('Component unmounted during config fetch, aborting initialization');
+          return;
+        }
+
+        setAgentConfig(config);
+
+        // Start the conversation and track it as pending
+        const conversationPromise = Conversation.startSession({
+          agentId: config.agent_id,
+          connectionType: 'websocket',
+          dynamicVariables: {
+            ROLE_TITLE: config.dynamic_variables.ROLE_TITLE,
+            CANDIDATE_NAME: config.dynamic_variables.CANDIDATE_NAME,
+            COMPANY_NAME: config.dynamic_variables.COMPANY_NAME,
+            INTERVIEW_TYPE: config.dynamic_variables.INTERVIEW_TYPE,
+            ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2),
+            RESUME_TEXT: config.dynamic_variables.RESUME_TEXT,
+          },
+          onConnect: ({ conversationId: convId }) => {
+            console.log('ElevenLabs conversation connected:', convId);
+            setConversationId(convId);
+          },
+          onDisconnect: (details) => {
+            console.log('ElevenLabs conversation disconnected:', details);
+          },
+          onError: (message, context) => {
+            console.error('ElevenLabs error:', message, context);
+            setError('Failed to connect to interview service');
+            setInterviewState('error');
+          },
+          onModeChange: ({ mode }) => {
+            console.log('Mode changed to:', mode);
+            if (mode === 'speaking') {
+              setInterviewState('speaking');
+            } else if (mode === 'listening') {
+              setInterviewState('listening');
+              setIsRecording(true);
+            }
+          },
+          onMessage: ({ message, source }) => {
+            console.log(`Message from ${source}:`, message);
+            if (source === 'user') {
+              setIsRecording(false);
+              setInterviewState('processing');
+            }
+          }
+        });
+
+        pendingConversationRef.current = conversationPromise;
+
+        // Wait for connection to complete
+        const conversation = await conversationPromise;
+        pendingConversationRef.current = null;
+
+        // Check if component was unmounted while connecting
+        if (cancelled) {
+          console.log('Component unmounted during connection, cleaning up conversation');
+          await conversation.endSession().catch(console.error);
+          return;
+        }
+
+        // Success - store the conversation and mark as ready
+        conversationRef.current = conversation;
+        setInterviewState('ready');
+      } catch (err) {
+        pendingConversationRef.current = null;
+        if (!cancelled) {
+          console.error('Failed to load session config:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
+          setInterviewState('error');
+        }
+      }
+    };
+
+    initializeInterview();
+
+    // Cleanup function - handles both pending and active connections
     return () => {
+      cancelled = true;
+
+      // Clean up pending connection if it completes after unmount
+      if (pendingConversationRef.current) {
+        pendingConversationRef.current.then(conversation => {
+          console.log('Cleaning up pending conversation after unmount');
+          conversation.endSession().catch(console.error);
+        }).catch(console.error);
+        pendingConversationRef.current = null;
+      }
+
+      // Clean up active connection
       if (conversationRef.current) {
+        console.log('Cleaning up active conversation');
         conversationRef.current.endSession().catch(console.error);
         conversationRef.current = null;
       }
@@ -56,83 +156,25 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     return () => clearInterval(interval);
   }, [interviewState]);
 
-  const loadSessionConfig = async () => {
-    // Prevent concurrent initialization (e.g., from React Strict Mode double-mounting)
-    if (isInitializingRef.current) {
-      console.log('Initialization already in progress, skipping duplicate call');
-      return;
+  const retryInitialization = () => {
+    // Clear error state and reset to trigger re-initialization
+    setError(null);
+    setInterviewState('loading');
+    // The useEffect will handle re-initialization when sessionId changes
+    // For same sessionId, we need to manually clean up and re-trigger
+    if (conversationRef.current) {
+      conversationRef.current.endSession().catch(console.error);
+      conversationRef.current = null;
     }
-
-    try {
-      isInitializingRef.current = true;
-      setInterviewState('loading');
-
-      const config = await apiClient.getSessionConfig(sessionId);
-      setAgentConfig(config);
-
-      // Prevent duplicate connections - cleanup existing conversation before creating new one
-      if (conversationRef.current) {
-        console.log('Cleaning up existing conversation before creating new one');
-        await conversationRef.current.endSession().catch(console.error);
-        conversationRef.current = null;
-      }
-
-      // Initialize ElevenLabs Conversation with dynamic variables
-      // dynamicVariables is a top-level parameter for personalizing the agent
-      const conversation = await Conversation.startSession({
-        agentId: config.agent_id,
-        connectionType: 'websocket',
-        dynamicVariables: {
-          ROLE_TITLE: config.dynamic_variables.ROLE_TITLE,
-          CANDIDATE_NAME: config.dynamic_variables.CANDIDATE_NAME,
-          COMPANY_NAME: config.dynamic_variables.COMPANY_NAME,
-          INTERVIEW_TYPE: config.dynamic_variables.INTERVIEW_TYPE,
-          ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2),
-          RESUME_TEXT: config.dynamic_variables.RESUME_TEXT,
-        },
-        onConnect: ({ conversationId: convId }) => {
-          console.log('ElevenLabs conversation connected:', convId);
-          setConversationId(convId);
-        },
-        onDisconnect: (details) => {
-          console.log('ElevenLabs conversation disconnected:', details);
-        },
-        onError: (message, context) => {
-          console.error('ElevenLabs error:', message, context);
-          setError('Failed to connect to interview service');
-          setInterviewState('error');
-        },
-        onModeChange: ({ mode }) => {
-          console.log('Mode changed to:', mode);
-          if (mode === 'speaking') {
-            setInterviewState('speaking');
-          } else if (mode === 'listening') {
-            setInterviewState('listening');
-            setIsRecording(true);
-          }
-        },
-        onMessage: ({ message, source }) => {
-          console.log(`Message from ${source}:`, message);
-          if (source === 'user') {
-            setIsRecording(false);
-            setInterviewState('processing');
-          }
-        }
-      });
-
-      conversationRef.current = conversation;
-      setInterviewState('ready');
-    } catch (err) {
-      console.error('Failed to load session config:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
-      setInterviewState('error');
-    } finally {
-      isInitializingRef.current = false;
+    if (pendingConversationRef.current) {
+      pendingConversationRef.current = null;
     }
+    // Force a re-render by updating a state that triggers the effect
+    window.location.reload();
   };
 
   const startInterview = () => {
-    // The conversation is already started in loadSessionConfig
+    // The conversation is already started during initialization
     // Just need to reset the timers and update state
     setElapsedTime(0);
     setQuestionStartTime(0);
@@ -267,7 +309,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
             </h2>
             <p className="text-[#6B5D4F] mb-6">{error}</p>
             <button
-              onClick={loadSessionConfig}
+              onClick={retryInitialization}
               className="px-6 py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all"
             >
               Try Again
