@@ -92,3 +92,41 @@ export type SessionListResponse = SessionListItem[];
  * Same as AnalyzeSessionResponse
  */
 export type SessionResultsResponse = AnalyzeSessionResponse;
+
+/**
+ * POST /api/v1/auth/register
+ */
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterResponse {
+  user: {
+    id: string;
+    email: string;
+  };
+  session: {
+    access_token: string;
+    refresh_token: string;
+  };
+}
+
+/**
+ * POST /api/v1/auth/login
+ */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: {
+    id: string;
+    email: string;
+  };
+  session: {
+    access_token: string;
+    refresh_token: string;
+  };
+}
