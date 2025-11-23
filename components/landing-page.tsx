@@ -66,7 +66,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 className="text-[#2C2416]" 
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
-                Grill Me AI
+                GrillMe AI
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -355,7 +355,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 className="text-[#2C2416] mb-6 text-4xl sm:text-5xl" 
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
-                Why Grill Me AI?
+                Why GrillMe AI?
               </h2>
               <div className="space-y-6">
                 <div className="flex gap-4">
@@ -455,7 +455,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             Ready to ace your next interview?
           </h2>
           <p className="text-[#6B5D4F] mb-12 max-w-2xl mx-auto">
-            Join countless job seekers who are using Grill Me AI to practice, 
+            Join countless job seekers who are using GrillMe AI to practice, 
             improve, and land their dream roles with confidence.
           </p>
           <button
@@ -473,7 +473,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-[#6B5D4F]">
             <p style={{ fontFamily: 'var(--font-serif)' }} className="text-[#2C2416] mb-2">
-              Grill Me AI
+              GrillMe AI
             </p>
             <p>Practice makes perfect</p>
           </div>
