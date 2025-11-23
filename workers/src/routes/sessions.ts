@@ -67,8 +67,7 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
       interview_type: interviewType as 'Technical' | 'Behavioral' | 'Mixed',
       attack_plan: attackPlan,
       status: 'ready',
-      resume_text: parsedResume.raw_text,
-      candidate_name: parsedResume.candidate_name,
+      parsed_resume: parsedResume,
     };
 
     const result: any = await supabase

@@ -5,8 +5,7 @@
 
 import OpenAI from 'openai';
 import { Env } from '../types/env';
-import { AttackPlan } from '../types/database';
-import { ParsedResume } from './resume-parser';
+import { AttackPlan, ParsedResume } from '../types/database';
 
 export interface AttackPlanInput {
   resume: ParsedResume;
@@ -52,10 +51,65 @@ export async function generateAttackPlan(
 }
 
 /**
+ * Format parsed resume into a structured string for the LLM
+ */
+function formatParsedResume(resume: ParsedResume): string {
+  let formatted = '';
+
+  // Candidate Info
+  if (resume.candidate_name) {
+    formatted += `CANDIDATE: ${resume.candidate_name}\n`;
+  }
+  if (resume.email) {
+    formatted += `EMAIL: ${resume.email}\n`;
+  }
+  if (resume.phone) {
+    formatted += `PHONE: ${resume.phone}\n`;
+  }
+
+  // Skills
+  if (resume.skills && resume.skills.length > 0) {
+    formatted += `\nSKILLS:\n${resume.skills.map(s => `  • ${s}`).join('\n')}\n`;
+  }
+
+  // Experience
+  if (resume.experience && resume.experience.length > 0) {
+    formatted += `\nEXPERIENCE:\n`;
+    resume.experience.forEach((exp, idx) => {
+      formatted += `  ${idx + 1}. ${exp.title} at ${exp.company}`;
+      if (exp.duration) formatted += ` (${exp.duration})`;
+      formatted += '\n';
+      if (exp.description) {
+        formatted += `     ${exp.description}\n`;
+      }
+    });
+  }
+
+  // Education
+  if (resume.education && resume.education.length > 0) {
+    formatted += `\nEDUCATION:\n`;
+    resume.education.forEach((edu, idx) => {
+      formatted += `  ${idx + 1}. ${edu.institution}`;
+      if (edu.degree) formatted += ` - ${edu.degree}`;
+      if (edu.year) formatted += ` (${edu.year})`;
+      formatted += '\n';
+    });
+  }
+
+  // Raw text as fallback/additional context
+  formatted += `\nFULL RESUME TEXT:\n${resume.raw_text}`;
+
+  return formatted;
+}
+
+/**
  * Build the prompt for the LLM to generate an attack plan
  */
 function buildAttackPlanPrompt(input: AttackPlanInput): string {
   const { resume, jobDescription, roleTitle, companyName } = input;
+
+  // Format the parsed resume for better LLM context
+  const formattedResume = formatParsedResume(resume);
 
   return `You are the "Director of Interview Strategy," a ruthlessly efficient Technical Recruiter and Behavioral Psychologist.
 
@@ -64,8 +118,12 @@ Your goal is to analyze a candidate's Resume against a Job Description and gener
 INPUT DATA:
 - Role Title: ${roleTitle}
 - Company: ${companyName || 'Not specified'} ${companyName ? `(Infer culture: e.g., Microsoft=Scale, Startup=Speed)` : ''}
-- Resume Text: ${resume.raw_text}
-- Job Description: ${jobDescription}
+
+STRUCTURED RESUME DATA:
+${formattedResume}
+
+JOB DESCRIPTION:
+${jobDescription}
 
 OBJECTIVES:
 1.  **Find the Gaps:** Identify where the resume fails to meet the JD requirements (e.g., "Resume lists Python but JD requires Java").

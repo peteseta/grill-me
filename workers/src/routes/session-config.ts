@@ -45,11 +45,11 @@ export async function getSessionConfig(c: Context<{ Bindings: Env }>): Promise<R
       agent_id: c.env.ELEVENLABS_AGENT_ID,
       dynamic_variables: {
         ROLE_TITLE: session.role_title,
-        CANDIDATE_NAME: session.candidate_name || 'Candidate',
+        CANDIDATE_NAME: session.parsed_resume?.candidate_name || 'Candidate',
         COMPANY_NAME: session.company_name || 'the company',
         INTERVIEW_TYPE: session.interview_type,
         ATTACK_PLAN_JSON: session.attack_plan,
-        RESUME_TEXT: session.resume_text || '',
+        RESUME_TEXT: session.parsed_resume?.raw_text || '',
       },
     };
 

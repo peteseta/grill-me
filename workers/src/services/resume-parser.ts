@@ -4,28 +4,10 @@
  */
 
 import { Env } from '../types/env';
+import { ParsedResume } from '../types/database';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
-
-export interface ParsedResume {
-  raw_text: string;
-  candidate_name?: string;
-  email?: string;
-  phone?: string;
-  skills?: string[];
-  experience?: {
-    company: string;
-    title: string;
-    duration?: string;
-    description?: string;
-  }[];
-  education?: {
-    institution: string;
-    degree?: string;
-    year?: string;
-  }[];
-}
 
 /**
  * Extract text from a PDF file
