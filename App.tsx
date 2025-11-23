@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Upload, History, Mic } from 'lucide-react';
+import { Upload, History, Mic, LogOut } from 'lucide-react';
 import { LandingPage } from './components/landing-page';
 import { UploadPage } from './components/upload-page';
 import { InterviewPage } from './components/interview-page';
 import { HistoryPage } from './components/history-page';
 import { InterviewDetail } from './components/interview-detail';
+import { AuthProvider, useAuth } from './lib/auth';
 
 type Tab = 'upload' | 'history';
 
@@ -18,8 +19,8 @@ export interface Interview {
   status: 'completed' | 'in-progress';
 }
 
-export default function App() {
-  const [showLanding, setShowLanding] = useState(true);
+function AppContent() {
+  const { isAuthenticated, isLoading, logout, user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('upload');
   const [selectedInterview, setSelectedInterview] = useState<Interview | null>(null);
   const [isInInterview, setIsInInterview] = useState(false);
@@ -33,13 +34,11 @@ export default function App() {
     setSelectedInterview(null);
   };
 
-  const handleGetStarted = () => {
-    setShowLanding(false);
-  };
-
-  const handleBackToLanding = () => {
-    setShowLanding(true);
+  const handleLogout = () => {
+    logout();
     setIsInInterview(false);
+    setSelectedInterview(null);
+    setActiveTab('upload');
   };
 
   const handleStartInterview = (sessionId: string) => {
@@ -52,8 +51,18 @@ export default function App() {
     setActiveTab('upload');
   };
 
-  if (showLanding) {
-    return <LandingPage onGetStarted={handleGetStarted} />;
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
+        <div className="text-[#6B5D4F]">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return <LandingPage onGetStarted={() => {}} />;
   }
 
   if (selectedInterview) {
@@ -69,18 +78,27 @@ export default function App() {
       {/* Header */}
       <header className="bg-[#FDFCFA] border-b border-[#2C2416]/10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleBackToLanding}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-[#C14B30] to-[#A03D24] rounded-2xl flex items-center justify-center shadow-sm">
                 <Mic className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>MockInterview AI</h1>
-            </button>
+              <div>
+                <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>MockInterview AI</h1>
+                <p className="text-[#6B5D4F] text-sm">Practice interviews with AI-powered feedback</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[#6B5D4F] text-sm hidden sm:inline">{user?.email}</span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-[#6B5D4F] hover:text-[#C14B30] hover:bg-[#F5F1E8] rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </div>
           </div>
-          <p className="text-[#6B5D4F] mt-2 ml-[52px]">Practice interviews with AI-powered feedback</p>
         </div>
       </header>
 
@@ -120,5 +138,14 @@ export default function App() {
         {activeTab === 'history' && <HistoryPage onViewInterview={handleViewInterview} />}
       </main>
     </div>
+  );
+}
+
+// Main App component wrapped with AuthProvider
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

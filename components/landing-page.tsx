@@ -1,14 +1,16 @@
-import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, TrendingUp, Star } from 'lucide-react';
+import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, TrendingUp, Star, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { apiClient } from '../lib/api-client';
 import { setUserSession } from '../lib/user';
+import { useAuth } from '../lib/auth';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
+  const { login, register } = useAuth();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -173,11 +175,15 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                className="text-[#6B5D4F] hover:text-[#C14B30] transition-colors"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                  setError(null);
+                }}
+                disabled={isSubmitting}
+                className="text-[#6B5D4F] hover:text-[#C14B30] transition-colors disabled:opacity-50"
               >
-                {authMode === 'login' 
-                  ? "Don't have an account? Sign up" 
+                {authMode === 'login'
+                  ? "Don't have an account? Sign up"
                   : 'Already have an account? Log in'}
               </button>
             </div>
@@ -233,14 +239,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <button
-                onClick={onGetStarted}
+                onClick={() => openAuthDialog('signup')}
                 className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
               >
                 Start Practicing Free
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
-                onClick={onGetStarted}
+                onClick={() => openAuthDialog('login')}
                 className="inline-flex items-center gap-2 bg-[#F5F1E8] text-[#2C2416] px-8 py-4 rounded-full hover:bg-[#E8E2D3] transition-colors border border-[#2C2416]/10"
               >
                 Watch Demo
@@ -453,7 +459,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             improve, and land their dream roles with confidence.
           </p>
           <button
-            onClick={onGetStarted}
+            onClick={() => openAuthDialog('signup')}
             className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
           >
             Start Practicing Now
