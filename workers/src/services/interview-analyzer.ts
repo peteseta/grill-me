@@ -3,6 +3,7 @@
  * Uses LLM to analyze interview transcript and generate feedback
  */
 
+import OpenAI from 'openai';
 import { Env } from '../types/env';
 import { TranscriptMessage, StructuredFeedbackItem } from '../types/database';
 
@@ -130,35 +131,32 @@ CRITICAL: Return ONLY the JSON object, no markdown formatting, no explanation te
 }
 
 /**
- * Call OpenAI API (GPT-4o)
+ * Call OpenAI API (GPT-4o) using the official SDK
  */
 async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.3,
-      response_format: { type: 'json_object' },
-    }),
+  const openai = new OpenAI({
+    apiKey: apiKey,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.3,
+    response_format: { type: 'json_object' },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('OpenAI API returned no content');
   }
 
-  const data = await response.json() as any;
-  return data.choices[0].message.content;
+  return content;
 }
 
 /**
