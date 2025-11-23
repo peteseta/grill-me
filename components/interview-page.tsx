@@ -34,9 +34,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   useEffect(() => {
     loadSessionConfig();
 
-    // Cleanup on unmount
+    // Cleanup on unmount - end the conversation if it exists
+    // Note: DO NOT reset isInitializingRef here as it would allow Strict Mode's
+    // unmount/remount cycle to create duplicate connections
     return () => {
-      isInitializingRef.current = false;
       if (conversationRef.current) {
         conversationRef.current.endSession().catch(console.error);
         conversationRef.current = null;
