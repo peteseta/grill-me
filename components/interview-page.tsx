@@ -19,8 +19,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentConfig, setAgentConfig] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const conversationRef = useRef<Conversation | null>(null);
   const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
+  const abortAnalysisRef = useRef<boolean>(false);
 
   // Mock questions for now - these will come from ElevenLabs
   const mockQuestions = [
@@ -126,6 +128,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     // Cleanup function - handles both pending and active connections
     return () => {
       cancelled = true;
+      abortAnalysisRef.current = true;
 
       // Clean up pending connection if it completes after unmount
       if (pendingConversationRef.current) {
@@ -147,7 +150,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (interviewState !== 'ready' && interviewState !== 'loading' && interviewState !== 'error') {
+    // Only run timer during active interview states (not during processing/analysis)
+    if (interviewState === 'listening' || interviewState === 'speaking') {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
         setQuestionStartTime((prev) => prev + 1);
@@ -182,14 +186,24 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   };
 
   const endInterviewAndAnalyze = async () => {
+    // Prevent double-click
+    if (isAnalyzing) {
+      console.log('Analysis already in progress, ignoring duplicate click');
+      return;
+    }
+
     if (!conversationRef.current || !conversationId) {
       console.error('No active conversation to analyze');
       return;
     }
 
     try {
+      setIsAnalyzing(true);
+      abortAnalysisRef.current = false;
+
       // End the ElevenLabs conversation
       await conversationRef.current.endSession();
+      conversationRef.current = null;
 
       setInterviewState('processing');
 
@@ -200,11 +214,23 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       let lastError: Error | null = null;
 
       for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // Check if component unmounted or user navigated away
+        if (abortAnalysisRef.current) {
+          console.log('Analysis aborted - component unmounted');
+          return;
+        }
+
         try {
           // Wait before attempting (exponentially increasing delay)
           const delay = baseDelay * (attempt + 1);
           console.log(`Waiting ${delay}ms before analysis attempt ${attempt + 1}/${maxRetries}`);
           await new Promise(resolve => setTimeout(resolve, delay));
+
+          // Check again after delay
+          if (abortAnalysisRef.current) {
+            console.log('Analysis aborted during delay - component unmounted');
+            return;
+          }
 
           // Trigger backend analysis
           await apiClient.analyzeSession(sessionId, {
@@ -212,8 +238,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
           });
 
           // Success! Exit the retry loop
-          alert('Interview completed! Check your history for detailed feedback.');
-          onExit();
+          if (!abortAnalysisRef.current) {
+            alert('Interview completed! Check your history for detailed feedback.');
+            onExit();
+          }
           return;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error('Failed to analyze interview');
@@ -227,9 +255,13 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
         }
       }
     } catch (err) {
-      console.error('Failed to analyze interview:', err);
-      setError(err instanceof Error ? err.message : 'Failed to analyze interview. The audio may still be processing - please check your history in a moment.');
-      setInterviewState('error');
+      if (!abortAnalysisRef.current) {
+        console.error('Failed to analyze interview:', err);
+        setError(err instanceof Error ? err.message : 'Failed to analyze interview. The audio may still be processing - please check your history in a moment.');
+        setInterviewState('error');
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -464,9 +496,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
                 {/* End Interview Button */}
                 <button
                   onClick={endInterviewAndAnalyze}
-                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg"
+                  disabled={isAnalyzing}
+                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  End Interview & Get Feedback
+                  {isAnalyzing ? 'Processing...' : 'End Interview & Get Feedback'}
                 </button>
               </div>
 
