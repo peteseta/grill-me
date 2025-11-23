@@ -58,18 +58,18 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       const config = await apiClient.getSessionConfig(sessionId);
       setAgentConfig(config);
 
-      // Initialize ElevenLabs Conversation with callbacks
+      // Initialize ElevenLabs Conversation with dynamic variables
+      // dynamicVariables is a top-level parameter for personalizing the agent
       const conversation = await Conversation.startSession({
         agentId: config.agent_id,
-        overrides: {
-          agent: {
-            prompt: {
-              variables: {
-                ...config.dynamic_variables,
-                ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2)
-              }
-            }
-          }
+        connectionType: 'websocket',
+        dynamicVariables: {
+          ROLE_TITLE: config.dynamic_variables.ROLE_TITLE,
+          CANDIDATE_NAME: config.dynamic_variables.CANDIDATE_NAME,
+          COMPANY_NAME: config.dynamic_variables.COMPANY_NAME,
+          INTERVIEW_TYPE: config.dynamic_variables.INTERVIEW_TYPE,
+          ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2),
+          RESUME_TEXT: config.dynamic_variables.RESUME_TEXT,
         },
         onConnect: ({ conversationId: convId }) => {
           console.log('ElevenLabs conversation connected:', convId);
