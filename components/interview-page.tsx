@@ -1,30 +1,40 @@
 import { useState, useEffect } from 'react';
-import { Mic, MicOff, X, Play, Pause, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, X, Play, Pause, AlertCircle, Loader2 } from 'lucide-react';
+import { apiClient } from '../lib/api-client';
 
-type InterviewState = 'ready' | 'listening' | 'processing' | 'speaking';
-
-const mockQuestions = [
-  "Tell me about yourself and your background.",
-  "Why are you interested in this position?",
-  "Describe a challenging project you've worked on and how you handled it.",
-  "What are your greatest strengths and weaknesses?",
-  "Where do you see yourself in five years?",
-];
+type InterviewState = 'loading' | 'ready' | 'listening' | 'processing' | 'speaking' | 'error';
 
 interface InterviewPageProps {
+  sessionId: string;
   onExit: () => void;
 }
 
-export function InterviewPage({ onExit }: InterviewPageProps) {
-  const [interviewState, setInterviewState] = useState<InterviewState>('ready');
+export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
+  const [interviewState, setInterviewState] = useState<InterviewState>('loading');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [agentConfig, setAgentConfig] = useState<any>(null);
+
+  // Mock questions for now - these will come from ElevenLabs
+  const mockQuestions = [
+    "Tell me about yourself and your background.",
+    "Why are you interested in this position?",
+    "Describe a challenging project you've worked on and how you handled it.",
+    "What are your greatest strengths and weaknesses?",
+    "Where do you see yourself in five years?",
+  ];
+
+  useEffect(() => {
+    loadSessionConfig();
+  }, [sessionId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (interviewState !== 'ready') {
+    if (interviewState !== 'ready' && interviewState !== 'loading' && interviewState !== 'error') {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
         setQuestionStartTime((prev) => prev + 1);
@@ -33,10 +43,38 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
     return () => clearInterval(interval);
   }, [interviewState]);
 
+  const loadSessionConfig = async () => {
+    try {
+      setInterviewState('loading');
+      const config = await apiClient.getSessionConfig(sessionId);
+      setAgentConfig(config);
+      setInterviewState('ready');
+
+      // TODO: Initialize ElevenLabs SDK here with config.agent_id and config.dynamic_variables
+      // The ATTACK_PLAN_JSON needs to be stringified before passing to the SDK
+      // Example:
+      // await conversation.startSession({
+      //   agentId: config.agent_id,
+      //   dynamicVariables: {
+      //     ...config.dynamic_variables,
+      //     ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2)
+      //   }
+      // });
+
+    } catch (err) {
+      console.error('Failed to load session config:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
+      setInterviewState('error');
+    }
+  };
+
   const startInterview = () => {
     setInterviewState('speaking');
     setElapsedTime(0);
     setQuestionStartTime(0);
+
+    // TODO: Start ElevenLabs conversation here
+    // For now, simulate starting
     setTimeout(() => {
       setInterviewState('listening');
       setIsRecording(true);
@@ -58,6 +96,8 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
           }, 3000);
         } else {
           setInterviewState('ready');
+          // TODO: Get conversation_id from ElevenLabs and trigger analysis
+          // await apiClient.analyzeSession(sessionId, { conversation_id: conversationId });
           alert('Interview completed! Check your history for detailed feedback.');
           onExit();
         }
@@ -69,7 +109,7 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
   };
 
   const handleExit = () => {
-    if (interviewState !== 'ready') {
+    if (interviewState !== 'ready' && interviewState !== 'loading' && interviewState !== 'error') {
       if (confirm('Are you sure you want to exit the interview? Your progress will be lost.')) {
         onExit();
       }
@@ -84,6 +124,58 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Loading state
+  if (interviewState === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 text-[#C14B30] animate-spin mx-auto mb-4" />
+          <h2 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+            Preparing Your Interview
+          </h2>
+          <p className="text-[#6B5D4F]">Setting up personalized questions based on your resume...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (interviewState === 'error') {
+    return (
+      <div className="min-h-screen bg-[#F5F1E8]">
+        <header className="bg-[#FDFCFA] border-b border-[#2C2416]/10 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Mock Interview</h1>
+              <button
+                onClick={onExit}
+                className="flex items-center gap-2 px-5 py-3 text-[#6B5D4F] hover:text-[#C14B30] hover:bg-[#C14B30]/5 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+                <span>Exit</span>
+              </button>
+            </div>
+          </div>
+        </header>
+        <div className="max-w-3xl mx-auto px-4 py-20">
+          <div className="bg-[#C14B30]/10 border-2 border-[#C14B30]/30 rounded-2xl p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-[#C14B30] mx-auto mb-4" />
+            <h2 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+              Failed to Load Interview
+            </h2>
+            <p className="text-[#6B5D4F] mb-6">{error}</p>
+            <button
+              onClick={loadSessionConfig}
+              className="px-6 py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F1E8]">
       {/* Header with Exit Button */}
@@ -92,6 +184,11 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Mock Interview</h1>
+              {interviewState !== 'ready' && agentConfig && (
+                <p className="text-[#6B5D4F] mt-1">
+                  {agentConfig.dynamic_variables.ROLE_TITLE} at {agentConfig.dynamic_variables.COMPANY_NAME}
+                </p>
+              )}
               {interviewState !== 'ready' && (
                 <p className="text-[#6B5D4F] mt-1">Question {currentQuestion + 1} of {mockQuestions.length} • {formatTime(elapsedTime)}</p>
               )}
@@ -115,8 +212,19 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
               <Mic className="w-14 h-14 text-[#C14B30]" strokeWidth={2} />
             </div>
             <h2 className="text-[#2C2416] mb-5" style={{ fontFamily: 'var(--font-serif)' }}>Ready to Start Your Mock Interview?</h2>
+            {agentConfig && (
+              <div className="mb-6 text-left bg-[#F5F1E8] rounded-2xl p-6">
+                <h3 className="text-[#2C2416] mb-3" style={{ fontFamily: 'var(--font-serif)' }}>Interview Details</h3>
+                <div className="space-y-2 text-[#6B5D4F]">
+                  <p><strong>Role:</strong> {agentConfig.dynamic_variables.ROLE_TITLE}</p>
+                  <p><strong>Company:</strong> {agentConfig.dynamic_variables.COMPANY_NAME}</p>
+                  <p><strong>Type:</strong> {agentConfig.dynamic_variables.INTERVIEW_TYPE}</p>
+                  <p><strong>Candidate:</strong> {agentConfig.dynamic_variables.CANDIDATE_NAME}</p>
+                </div>
+              </div>
+            )}
             <p className="text-[#6B5D4F] mb-10 max-w-2xl mx-auto leading-relaxed">
-              You'll be asked {mockQuestions.length} questions. Answer naturally and take your time. 
+              You'll be asked {mockQuestions.length} questions. Answer naturally and take your time.
               The AI will provide real-time feedback on your responses.
             </p>
             <button
@@ -141,26 +249,26 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
                   <div className="relative w-64 h-64">
                     {/* Outer glow rings */}
                     <div className={`absolute inset-0 rounded-full transition-all duration-1000 ${
-                      interviewState === 'speaking' 
-                        ? 'bg-[#C14B30]/20 animate-ping' 
+                      interviewState === 'speaking'
+                        ? 'bg-[#C14B30]/20 animate-ping'
                         : interviewState === 'listening'
                         ? 'bg-[#5A7C6F]/20 animate-pulse'
                         : 'bg-[#D4845C]/20 animate-pulse'
                     }`} style={{ animationDuration: '2s' }} />
-                    
+
                     {/* Middle ring */}
                     <div className={`absolute inset-8 rounded-full transition-all duration-700 ${
-                      interviewState === 'speaking' 
-                        ? 'bg-[#C14B30]/30' 
+                      interviewState === 'speaking'
+                        ? 'bg-[#C14B30]/30'
                         : interviewState === 'listening'
                         ? 'bg-[#5A7C6F]/30'
                         : 'bg-[#D4845C]/30'
                     }`} style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
-                    
+
                     {/* Core blob */}
                     <div className={`absolute inset-16 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl ${
-                      interviewState === 'speaking' 
-                        ? 'bg-gradient-to-br from-[#C14B30] to-[#A03D24]' 
+                      interviewState === 'speaking'
+                        ? 'bg-gradient-to-br from-[#C14B30] to-[#A03D24]'
                         : interviewState === 'listening'
                         ? 'bg-gradient-to-br from-[#5A7C6F] to-[#4A6B5E]'
                         : 'bg-gradient-to-br from-[#D4845C] to-[#C16F47]'
@@ -216,7 +324,7 @@ export function InterviewPage({ onExit }: InterviewPageProps) {
                   <h3 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Recording</h3>
                   <span className="text-[#6B5D4F]">{formatTime(questionStartTime)}</span>
                 </div>
-                
+
                 {/* Waveform Visualization */}
                 <div className="flex items-center justify-center gap-1 h-24 bg-[#F5F1E8] rounded-xl px-4">
                   {[...Array(50)].map((_, i) => (
