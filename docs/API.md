@@ -32,7 +32,7 @@ This endpoint provides the frontend with the specific variable values needed to 
   "dynamic_variables": {
     "ROLE_TITLE": "Product Manager",
     "CANDIDATE_NAME": "Pete",
-    "COMPANY_NAME_OR_CONTEXT": "Microsoft",
+    "COMPANY_NAME": "Microsoft",
     "INTERVIEW_TYPE": "Mixed",
     
     // The backend returns this as a standard JSON object.
@@ -119,20 +119,20 @@ This endpoint performs two tasks:
 
 *   **Response (`200 OK`)**:
     *   **Crucial:** This schema allows the frontend to highlight specific text.
-    *   **UI Logic:** The Frontend iterates through `transcript_annotations`. It finds the `message_index` in the transcript, finds the `exact_quote` string within that message, and wraps it in a colored span.
+    *   **UI Logic:** The Frontend iterates through `structured_feedback`. It finds the `message_index` in the transcript, finds the `exact_quote` string within that message, and wraps it in a colored span.
 
     ```json
     {
       "session_id": "sess_12345",
       "metrics": {
-        "overall_score": 7, // 1-10
-        "bullshit_meter": 65, // 0-100 (high = bad)
-        "technical_accuracy": 80 // 0-100 (high = good)
+        "score_overall": 7, // 1-10
+        "score_bullshit": 65, // 0-100 (high = bad)
+        "score_technical": 80 // 0-100 (high = good)
       },
       "summary_feedback": "Strong technical foundation, but you struggled to justify business value...",
       
       // The High-Fidelity Transcript (saved from ElevenLabs)
-      "transcript": [
+      "full_transcript_json": [
         { 
           "index": 0, 
           "role": "agent", 
@@ -148,7 +148,7 @@ This endpoint performs two tasks:
       ],
 
       // The Formatting Instructions
-      "annotations": [
+      "structured_feedback": [
         {
           "target_message_index": 1, // Points to the user's message above
           "exact_quote": "utilized a blockchain backbone",
@@ -197,8 +197,8 @@ Retrieves a list of past interview sessions for a specific user. This is used to
         "company_name": "Microsoft",
         "status": "completed", // 'setup', 'completed', 'in_progress'
         "scores": {
-          "overall": 7,
-          "bullshit_meter": 65
+          "score_overall": 7,
+          "score_bullshit": 65
         }
       },
       {

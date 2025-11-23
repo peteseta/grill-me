@@ -13,12 +13,12 @@ Input Transcript:
 Required Output Schema:
 ```json
 {
-  "metrics": { "overall_score": int, "bullshit_meter": int, ... },
+  "metrics": { "score_overall": int, "score_bullshit": int, "score_technical": int },
   "annotations": [
     {
-      "target_message_index": int, 
-      "exact_quote": "string", 
-      "type": "positive"|"negative"|"warning", 
+      "target_message_index": int,
+      "exact_quote": "string",
+      "type": "positive"|"negative"|"warning",
       "feedback": "string"
     }
   ]
