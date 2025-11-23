@@ -1,24 +1,46 @@
-import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, TrendingUp, Star } from 'lucide-react';
+import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, TrendingUp, Star, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { useAuth } from '../lib/auth';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
+  const { login, register } = useAuth();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically handle authentication
-    console.log(authMode, { email, password, name });
-    setShowAuthDialog(false);
-    onGetStarted();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      let result;
+      if (authMode === 'login') {
+        result = await login(email, password);
+      } else {
+        result = await register(email, password, name);
+      }
+
+      if (result.success) {
+        setShowAuthDialog(false);
+        onGetStarted();
+      } else {
+        setError(result.error || 'Authentication failed');
+      }
+    } catch {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openAuthDialog = (mode: 'login' | 'signup') => {
@@ -27,6 +49,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     setEmail('');
     setPassword('');
     setName('');
+    setError(null);
   };
 
   return (
@@ -79,6 +102,12 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </DialogHeader>
 
           <form onSubmit={handleAuthSubmit} className="space-y-5 mt-4">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+
             {authMode === 'signup' && (
               <div>
                 <label className="block text-[#2C2416] mb-2">
@@ -90,7 +119,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter your full name"
                   required
-                  className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all"
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
                 />
               </div>
             )}
@@ -105,7 +135,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
-                className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all"
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
               />
             </div>
 
@@ -119,26 +150,40 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
-                className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all"
+                disabled={isSubmitting}
+                minLength={6}
+                className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl"
+              disabled={isSubmitting}
+              className="w-full py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              {authMode === 'login' ? 'Log In' : 'Sign Up'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {authMode === 'login' ? 'Logging in...' : 'Signing up...'}
+                </>
+              ) : (
+                authMode === 'login' ? 'Log In' : 'Sign Up'
+              )}
             </button>
 
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                className="text-[#6B5D4F] hover:text-[#C14B30] transition-colors"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                  setError(null);
+                }}
+                disabled={isSubmitting}
+                className="text-[#6B5D4F] hover:text-[#C14B30] transition-colors disabled:opacity-50"
               >
-                {authMode === 'login' 
-                  ? "Don't have an account? Sign up" 
+                {authMode === 'login'
+                  ? "Don't have an account? Sign up"
                   : 'Already have an account? Log in'}
               </button>
             </div>
@@ -194,14 +239,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <button
-                onClick={onGetStarted}
+                onClick={() => openAuthDialog('signup')}
                 className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
               >
                 Start Practicing Free
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
-                onClick={onGetStarted}
+                onClick={() => openAuthDialog('login')}
                 className="inline-flex items-center gap-2 bg-[#F5F1E8] text-[#2C2416] px-8 py-4 rounded-full hover:bg-[#E8E2D3] transition-colors border border-[#2C2416]/10"
               >
                 Watch Demo
@@ -414,7 +459,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             improve, and land their dream roles with confidence.
           </p>
           <button
-            onClick={onGetStarted}
+            onClick={() => openAuthDialog('signup')}
             className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
           >
             Start Practicing Now
