@@ -8,6 +8,34 @@ import { ParsedResume } from '../types/database';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
+import { z } from 'zod';
+
+/**
+ * Zod schema for structured output from gpt-5-nano
+ * Defines the expected parsed resume structure
+ */
+const ExperienceSchema = z.object({
+  company: z.string().describe('Company name'),
+  title: z.string().describe('Job title'),
+  duration: z.string().optional().describe('Duration of employment'),
+  description: z.string().optional().describe('Job description or responsibilities'),
+});
+
+const EducationSchema = z.object({
+  institution: z.string().describe('Educational institution name'),
+  degree: z.string().optional().describe('Degree or qualification'),
+  year: z.string().optional().describe('Graduation year or time period'),
+});
+
+const ParsedResumeSchema = z.object({
+  candidate_name: z.string().optional().describe('Full name of the candidate'),
+  email: z.string().optional().describe('Email address'),
+  phone: z.string().optional().describe('Phone number'),
+  skills: z.array(z.string()).optional().describe('List of technical and soft skills'),
+  experience: z.array(ExperienceSchema).optional().describe('Work experience history'),
+  education: z.array(EducationSchema).optional().describe('Educational background'),
+});
 
 /**
  * Extract text from a PDF file
@@ -70,54 +98,52 @@ async function extractText(file: File): Promise<string> {
 
 /**
  * Call OpenAI API to extract structured data from resume text
+ * Uses gpt-5-nano for fast, cost-effective parsing with structured outputs
  */
 async function extractWithOpenAI(text: string, apiKey: string): Promise<ParsedResume> {
   const openai = new OpenAI({
     apiKey: apiKey,
   });
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
+  const userPrompt = `Parse the following resume and extract structured information including name, contact details, skills, work experience, and education.
+
+Resume text:
+${text}
+
+Extract all relevant information accurately.`;
+
+  // Call OpenAI API with structured outputs (gpt-5-nano for efficient parsing)
+  const response = await openai.responses.parse({
+    model: 'gpt-5-nano',
+    input: [
       {
         role: 'system',
-        content: 'You are a resume parser. Extract structured information from resumes and return valid JSON only.',
+        content: 'You are a resume parser. Extract structured information from resumes accurately.',
       },
       {
         role: 'user',
-        content: `Parse the following resume and extract structured information. Return ONLY a valid JSON object with this exact structure:
-{
-  "candidate_name": "string or null",
-  "email": "string or null",
-  "phone": "string or null",
-  "skills": ["array of skill strings"] or null,
-  "experience": [{"company": "string", "title": "string", "duration": "string or null", "description": "string or null"}] or null,
-  "education": [{"institution": "string", "degree": "string or null", "year": "string or null"}] or null
-}
-
-Resume text:
-${text}`,
+        content: userPrompt,
       },
     ],
-    response_format: { type: 'json_object' },
-    temperature: 0.1,
+    text: {
+      format: zodTextFormat(ParsedResumeSchema, 'parsed_resume'),
+    },
   });
 
-  const content = completion.choices[0].message.content;
-  if (!content) {
-    throw new Error('No content returned from OpenAI');
-  }
+  const parsedData = response.output_parsed;
 
-  const parsed = JSON.parse(content);
+  if (!parsedData) {
+    throw new Error('OpenAI returned empty response');
+  }
 
   return {
     raw_text: text,
-    candidate_name: parsed.candidate_name || undefined,
-    email: parsed.email || undefined,
-    phone: parsed.phone || undefined,
-    skills: parsed.skills || undefined,
-    experience: parsed.experience || undefined,
-    education: parsed.education || undefined,
+    candidate_name: parsedData.candidate_name,
+    email: parsedData.email,
+    phone: parsedData.phone,
+    skills: parsedData.skills,
+    experience: parsedData.experience,
+    education: parsedData.education,
   };
 }
 

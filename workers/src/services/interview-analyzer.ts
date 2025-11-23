@@ -4,8 +4,10 @@
  */
 
 import OpenAI from 'openai';
-import { Env } from '../types/env';
-import { TranscriptMessage, StructuredFeedbackItem } from '../types/database';
+import { zodTextFormat } from 'openai/helpers/zod';
+import { z } from 'zod';
+import { Env } from '@/types';
+import { TranscriptMessage, StructuredFeedbackItem } from '@/types';
 
 export interface AnalysisResult {
   score_overall: number; // 1-10
@@ -23,15 +25,36 @@ export interface AnalysisInput {
 }
 
 /**
+ * Zod schema for structured output from GPT-5.1
+ * Defines the expected interview analysis structure
+ */
+const StructuredFeedbackItemSchema = z.object({
+  target_message_index: z.number().describe('Index of the message being annotated'),
+  exact_quote: z.string().describe('EXACT text from the transcript to highlight'),
+  type: z.enum(['positive', 'negative', 'warning']).describe('Type of annotation: positive (green), negative (red), or warning (yellow)'),
+  category: z.string().describe('Category like buzzword_stuffing, vagueness, concrete_metric, good_structure, etc.'),
+  feedback: z.string().describe('Specific actionable feedback for this annotation'),
+});
+
+const AnalysisResultSchema = z.object({
+  score_overall: z.number().min(1).max(10).describe('Overall interview performance score from 1-10'),
+  score_bullshit: z.number().min(0).max(100).describe('Buzzword/vagueness score 0-100, higher means more BS'),
+  score_technical: z.number().min(0).max(100).describe('Technical depth score 0-100, higher means better technical understanding'),
+  summary_feedback: z.string().describe('Overall performance summary and key improvement areas'),
+  structured_feedback: z.array(StructuredFeedbackItemSchema).describe('Array of specific annotations highlighting good and bad parts of responses'),
+});
+
+/**
  * Analyze the interview transcript and generate detailed feedback
  *
- * Uses OpenAI's GPT-4o model to analyze the candidate's responses for:
+ * Uses OpenAI's GPT-5.1 with medium reasoning effort to analyze the candidate's responses for:
  * 1. Buzzword usage and vagueness (score_bullshit)
  * 2. Technical depth and accuracy (score_technical)
  * 3. Overall interview performance (score_overall)
  *
  * Generates structured feedback that highlights specific quotes and categorizes
  * them as positive, negative, or warning with actionable improvement suggestions.
+ * Uses structured outputs to ensure reliable JSON schema conformance.
  *
  * @param input - Transcript and interview context
  * @param env - Environment variables for API keys
@@ -41,28 +64,53 @@ export async function analyzeInterview(
   input: AnalysisInput,
   env: Env
 ): Promise<AnalysisResult> {
-  // 1. Format transcript for the LLM
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+
+  // Initialize OpenAI client
+  const openai = new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
+
+  // Format transcript for the LLM
   const formattedTranscript = formatTranscriptForPrompt(input.transcript);
 
-  // 2. Construct the prompt
-  const systemPrompt = buildAnalysisPrompt(
+  // Construct the prompt
+  const userPrompt = buildAnalysisPrompt(
     formattedTranscript,
     input.jobDescription,
     input.roleTitle,
     input.interviewType
   );
 
-  // 3. Call OpenAI API
-  if (!env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not configured');
+  // Call OpenAI API with structured outputs
+  const response = await openai.responses.parse({
+    model: 'gpt-5.1',
+    reasoning_effort: 'medium',
+    input: [
+      {
+        role: 'system',
+        content: 'You are an expert Interview Critic. Analyze interview transcripts and provide detailed, actionable feedback with specific annotations.',
+      },
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ],
+    text: {
+      format: zodTextFormat(AnalysisResultSchema, 'interview_analysis'),
+    },
+  });
+
+  // Extract the parsed analysis
+  const parsedResponse = response.output_parsed;
+
+  if (!parsedResponse) {
+    throw new Error('OpenAI returned empty response');
   }
 
-  const llmResponse = await callOpenAI(systemPrompt, env.OPENAI_API_KEY);
-
-  // 4. Parse and validate the response
-  const parsedResponse = parseAnalysisResponse(llmResponse);
-
-  // 5. Validate exact quotes match transcript text
+  // Validate exact quotes match transcript text
   validateQuotes(parsedResponse.structured_feedback, input.transcript);
 
   return parsedResponse;
@@ -81,7 +129,8 @@ function formatTranscriptForPrompt(transcript: TranscriptMessage[]): string {
 }
 
 /**
- * Build the complete analysis prompt using the template from PROMPT_analysis.md
+ * Build the analysis prompt - simplified for structured outputs
+ * Schema enforcement handles the structure
  */
 function buildAnalysisPrompt(
   formattedTranscript: string,
@@ -89,136 +138,32 @@ function buildAnalysisPrompt(
   roleTitle: string,
   interviewType: string
 ): string {
-  return `You are an Interview Critic. I will provide a transcript.
-You must output a JSON object with metrics and an array of 'annotations'.
+  return `Analyze this interview transcript and provide detailed feedback with specific annotations.
 
 Interview Context:
 - Role: ${roleTitle}
 - Interview Type: ${interviewType}
 - Job Description: ${jobDescription}
 
-For the annotations:
-1. You must identify specific phrases in the user's speech that are either 'positive' (green), 'negative' (red), or 'warning' (yellow).
-2. You must quote the text EXACTLY as it appears in the transcript so my frontend can find-and-replace it with a highlight.
-3. Use 'negative' for: Buzzwords, lies, rambling, avoiding the question.
-4. Use 'positive' for: Specific metrics, clear structure (STAR method), admitting mistakes honestly.
-5. Use 'warning' for: Vague language, missing details, unclear explanations.
-6. Assign appropriate categories like: 'buzzword_stuffing', 'vagueness', 'concrete_metric', 'good_structure', etc.
+Analysis Requirements:
+1. **Identify Specific Phrases:** Find phrases that are 'positive' (green), 'negative' (red), or 'warning' (yellow).
+2. **Exact Quotes:** Quote the text EXACTLY as it appears in the transcript for highlighting.
+3. **Use 'negative' for:** Buzzwords, lies, rambling, avoiding the question, vague claims.
+4. **Use 'positive' for:** Specific metrics, clear structure (STAR method), admitting mistakes honestly, technical depth.
+5. **Use 'warning' for:** Vague language, missing details, unclear explanations, potential exaggerations.
+6. **Categories:** Assign categories like: 'buzzword_stuffing', 'vagueness', 'concrete_metric', 'good_structure', 'technical_depth', 'evasion', etc.
+
+Scoring Guidelines:
+- **score_overall (1-10):** Overall interview performance
+- **score_bullshit (0-100):** Higher means more buzzwords/vagueness/BS
+- **score_technical (0-100):** Higher means better technical depth and accuracy
 
 Input Transcript:
 ${formattedTranscript}
 
-Required Output Schema:
-\`\`\`json
-{
-  "score_overall": <number 1-10>,
-  "score_bullshit": <number 0-100, where higher means more buzzwords/BS>,
-  "score_technical": <number 0-100, where higher means better technical depth>,
-  "summary_feedback": "<string with overall performance summary>",
-  "structured_feedback": [
-    {
-      "target_message_index": <number>,
-      "exact_quote": "<string>",
-      "type": "positive"|"negative"|"warning",
-      "category": "<string>",
-      "feedback": "<string>"
-    }
-  ]
-}
-\`\`\`
-
-CRITICAL: Return ONLY the JSON object, no markdown formatting, no explanation text.`;
+Provide comprehensive analysis with specific annotations highlighting both strengths and weaknesses.`;
 }
 
-/**
- * Call OpenAI API (GPT-4o) using the official SDK
- */
-async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
-  const openai = new OpenAI({
-    apiKey: apiKey,
-  });
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.3,
-    response_format: { type: 'json_object' },
-  });
-
-  const content = completion.choices[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('OpenAI API returned no content');
-  }
-
-  return content;
-}
-
-/**
- * Parse and validate the LLM response
- */
-function parseAnalysisResponse(llmResponse: string): AnalysisResult {
-  try {
-    // Clean up potential markdown code blocks
-    let cleanedResponse = llmResponse.trim();
-    if (cleanedResponse.startsWith('```json')) {
-      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-    } else if (cleanedResponse.startsWith('```')) {
-      cleanedResponse = cleanedResponse.replace(/```\n?/g, '').replace(/```\n?$/g, '');
-    }
-
-    const parsed = JSON.parse(cleanedResponse);
-
-    // Validate required fields
-    if (typeof parsed.score_overall !== 'number' || parsed.score_overall < 1 || parsed.score_overall > 10) {
-      throw new Error('Invalid score_overall: must be between 1-10');
-    }
-
-    if (typeof parsed.score_bullshit !== 'number' || parsed.score_bullshit < 0 || parsed.score_bullshit > 100) {
-      throw new Error('Invalid score_bullshit: must be between 0-100');
-    }
-
-    if (typeof parsed.score_technical !== 'number' || parsed.score_technical < 0 || parsed.score_technical > 100) {
-      throw new Error('Invalid score_technical: must be between 0-100');
-    }
-
-    if (typeof parsed.summary_feedback !== 'string') {
-      throw new Error('Invalid summary_feedback: must be a string');
-    }
-
-    if (!Array.isArray(parsed.structured_feedback)) {
-      throw new Error('Invalid structured_feedback: must be an array');
-    }
-
-    // Validate each feedback item
-    for (const item of parsed.structured_feedback) {
-      if (typeof item.target_message_index !== 'number') {
-        throw new Error('Invalid target_message_index: must be a number');
-      }
-      if (typeof item.exact_quote !== 'string') {
-        throw new Error('Invalid exact_quote: must be a string');
-      }
-      if (!['positive', 'negative', 'warning'].includes(item.type)) {
-        throw new Error('Invalid type: must be positive, negative, or warning');
-      }
-      if (typeof item.category !== 'string') {
-        throw new Error('Invalid category: must be a string');
-      }
-      if (typeof item.feedback !== 'string') {
-        throw new Error('Invalid feedback: must be a string');
-      }
-    }
-
-    return parsed as AnalysisResult;
-  } catch (error) {
-    throw new Error(`Failed to parse LLM response: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
 
 /**
  * Validate that exact quotes exist in the transcript
