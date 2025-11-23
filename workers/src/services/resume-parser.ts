@@ -6,6 +6,7 @@
 import { Env } from '../types/env';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
+import OpenAI from 'openai';
 
 export interface ParsedResume {
   raw_text: string;
@@ -89,22 +90,20 @@ async function extractText(file: File): Promise<string> {
  * Call OpenAI API to extract structured data from resume text
  */
 async function extractWithOpenAI(text: string, apiKey: string): Promise<ParsedResume> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a resume parser. Extract structured information from resumes and return valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: `Parse the following resume and extract structured information. Return ONLY a valid JSON object with this exact structure:
+  const openai = new OpenAI({
+    apiKey: apiKey,
+  });
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a resume parser. Extract structured information from resumes and return valid JSON only.',
+      },
+      {
+        role: 'user',
+        content: `Parse the following resume and extract structured information. Return ONLY a valid JSON object with this exact structure:
 {
   "candidate_name": "string or null",
   "email": "string or null",
@@ -116,19 +115,17 @@ async function extractWithOpenAI(text: string, apiKey: string): Promise<ParsedRe
 
 Resume text:
 ${text}`,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-    }),
+      },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
   });
 
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+  const content = completion.choices[0].message.content;
+  if (!content) {
+    throw new Error('No content returned from OpenAI');
   }
 
-  const data = await response.json() as any;
-  const content = data.choices[0].message.content;
   const parsed = JSON.parse(content);
 
   return {
