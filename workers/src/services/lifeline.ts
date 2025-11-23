@@ -3,6 +3,7 @@
  * Provides real-time assistance to users during the interview
  */
 
+import OpenAI from 'openai';
 import { Env } from '../types/env';
 import { LifelineRequest, LifelineResponse } from '../types/api';
 
@@ -29,11 +30,64 @@ export async function generateLifelineAdvice(
   request: LifelineRequest,
   env: Env
 ): Promise<LifelineResponse> {
-  // TODO: Implement lifeline advice generation
-  // 1. Construct prompt with conversation history
-  // 2. Call fast LLM API (GPT-4o-mini or Claude Haiku for speed)
-  // 3. Parse response into advice and suggested opening
-  // 4. Return LifelineResponse
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
 
-  throw new Error('Lifeline advice generation not yet implemented');
+  // Initialize OpenAI client
+  const openai = new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
+
+  // 1. Construct prompt with conversation history
+  const conversationContext = request.transcript_history
+    .map((msg) => `${msg.role === 'agent' ? 'Interviewer' : 'Candidate'}: ${msg.text}`)
+    .join('\n');
+
+  const systemPrompt = `You are an expert interview coach. A candidate is stuck in a job interview and needs immediate tactical advice.
+
+Your task:
+1. Analyze what the interviewer is really testing (e.g., technical depth, business judgment, leadership)
+2. Provide concise tactical advice on how to answer (1-2 sentences max)
+3. Suggest a strong opening line to help the candidate recover
+
+Respond in JSON format with this exact structure:
+{
+  "advice": "Brief tactical advice here",
+  "suggested_opening": "A strong opening line here"
+}`;
+
+  const userPrompt = `Based on this interview conversation, what should the candidate do?
+
+${conversationContext}
+
+Provide tactical advice and a suggested opening line in JSON format.`;
+
+  // 2. Call OpenAI API (GPT-4o-mini for speed)
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.7,
+    max_tokens: 300,
+  });
+
+  const content = completion.choices[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('No content returned from OpenAI API');
+  }
+
+  // 3. Parse response into advice and suggested opening
+  const parsed = JSON.parse(content);
+
+  // 4. Return LifelineResponse
+  return {
+    advice: parsed.advice || 'Focus on providing specific examples and concrete details.',
+    suggested_opening:
+      parsed.suggested_opening || 'Let me give you a specific example...',
+  };
 }
