@@ -5,6 +5,7 @@
 
 import { Env } from '../types/env';
 import { TranscriptMessage } from '../types/database';
+import { getSupabaseClient } from '../utils/supabase';
 
 /**
  * Fetch the full conversation transcript from ElevenLabs
@@ -13,12 +14,6 @@ import { TranscriptMessage } from '../types/database';
  * @param env - Environment variables for API keys
  * @returns Array of transcript messages with timestamps
  *
- * TODO: Implement transcript fetching
- * - Call ElevenLabs API to get conversation transcript
- * - Parse the response into TranscriptMessage[] format
- * - Include timestamps, roles, and text
- * - Handle API errors and retries
- *
  * API endpoint: GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}
  * Headers: xi-api-key: {ELEVENLABS_API_KEY}
  */
@@ -26,34 +21,103 @@ export async function fetchTranscript(
   conversationId: string,
   env: Env
 ): Promise<TranscriptMessage[]> {
-  // TODO: Implement ElevenLabs transcript fetching
-  // 1. Make GET request to ElevenLabs API
-  // 2. Parse response and extract messages
-  // 3. Transform to TranscriptMessage[] format
-  // 4. Add message indices and timestamps
+  const url = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`;
 
-  throw new Error('ElevenLabs transcript fetching not yet implemented');
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'xi-api-key': env.ELEVENLABS_API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `ElevenLabs API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.json() as {
+    transcript: Array<{
+      role: 'user' | 'agent';
+      time_in_call_secs: number;
+      message?: string | null;
+    }>;
+  };
+
+  // Transform ElevenLabs transcript format to our TranscriptMessage format
+  const transcript: TranscriptMessage[] = data.transcript
+    .map((turn, index) => ({
+      index,
+      role: turn.role,
+      text: turn.message || '', // Handle null/undefined messages
+      timestamp: turn.time_in_call_secs,
+    }))
+    .filter((msg) => msg.text.trim() !== ''); // Filter out empty messages
+
+  return transcript;
 }
 
 /**
- * Fetch the audio recording URL from ElevenLabs
+ * Fetch the audio recording from ElevenLabs and store it in Supabase Storage
  *
  * @param conversationId - The ElevenLabs conversation ID
  * @param env - Environment variables for API keys
- * @returns URL to the audio recording
+ * @returns Public URL to the audio file in Supabase storage, or null if upload fails
  *
- * TODO: Implement audio URL fetching
- * - Get the audio recording URL from ElevenLabs
- * - May need to download and upload to R2/Supabase storage
+ * API endpoint: GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}/audio
+ * Headers: xi-api-key: {ELEVENLABS_API_KEY}
  */
 export async function fetchAudioUrl(
   conversationId: string,
   env: Env
 ): Promise<string | null> {
-  // TODO: Implement audio URL fetching
-  // 1. Get audio URL from ElevenLabs API
-  // 2. Optionally download and re-upload to your storage
-  // 3. Return permanent URL
+  try {
+    const url = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`;
 
-  throw new Error('ElevenLabs audio URL fetching not yet implemented');
+    // Fetch the audio data from ElevenLabs
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'xi-api-key': env.ELEVENLABS_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `ElevenLabs audio API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    // Get the audio data as blob
+    const audioBlob = await response.blob();
+
+    // Initialize Supabase client
+    const supabase = getSupabaseClient(env);
+
+    // Generate a unique path for Supabase storage
+    const storagePath = `conversations/${conversationId}.mp3`;
+
+    // Upload to Supabase storage bucket 'audio'
+    const { error: uploadError } = await supabase.storage
+      .from('audio')
+      .upload(storagePath, audioBlob, {
+        contentType: 'audio/mpeg',
+        upsert: true, // Overwrite if already exists
+      });
+
+    if (uploadError) {
+      console.error('Error uploading audio to Supabase:', uploadError);
+      return null;
+    }
+
+    // Get the public URL for the uploaded file
+    const { data: publicUrlData } = supabase.storage
+      .from('audio')
+      .getPublicUrl(storagePath);
+
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Error fetching/uploading audio:', error);
+    return null;
+  }
 }
