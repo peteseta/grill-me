@@ -1,10 +1,20 @@
 import { useState } from 'react';
-import { Upload, FileText, Briefcase, CheckCircle, X, Sparkles, Code2, Users2, Boxes, ArrowRight } from 'lucide-react';
+import { Upload, FileText, Briefcase, CheckCircle, X, Sparkles, Code2, Users2, Boxes, ArrowRight, Loader2 } from 'lucide-react';
+import { apiClient } from '../lib/api-client';
+import { getUserId } from '../lib/user';
 
-export function UploadPage({ onStartInterview }: { onStartInterview?: () => void }) {
+interface UploadPageProps {
+  onStartInterview?: (sessionId: string) => void;
+}
+
+export function UploadPage({ onStartInterview }: UploadPageProps) {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
-  const [selectedInterviewType, setSelectedInterviewType] = useState<'technical' | 'behavioural' | 'hybrid' | null>(null);
+  const [roleTitle, setRoleTitle] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [selectedInterviewType, setSelectedInterviewType] = useState<'Technical' | 'Behavioral' | 'Mixed' | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -13,14 +23,37 @@ export function UploadPage({ onStartInterview }: { onStartInterview?: () => void
     }
   };
 
-  const handleInterviewTypeSelect = (interviewType: 'technical' | 'behavioural' | 'hybrid') => {
+  const handleInterviewTypeSelect = (interviewType: 'Technical' | 'Behavioral' | 'Mixed') => {
     setSelectedInterviewType(interviewType);
   };
 
-  const handleStartInterview = () => {
-    if (onStartInterview && resumeFile && jobDescription && selectedInterviewType) {
-      console.log('Starting interview:', selectedInterviewType);
-      onStartInterview();
+  const handleStartInterview = async () => {
+    if (!onStartInterview || !resumeFile || !jobDescription || !selectedInterviewType) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const userId = getUserId();
+
+      const response = await apiClient.createSession({
+        resume: resumeFile,
+        job_description_text: jobDescription,
+        user_id: userId,
+        interview_type: selectedInterviewType,
+        role_title: roleTitle || undefined,
+        company_name: companyName || undefined,
+      });
+
+      // Pass session ID to parent
+      onStartInterview(response.session_id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create session. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -89,6 +122,36 @@ export function UploadPage({ onStartInterview }: { onStartInterview?: () => void
             )}
           </div>
 
+          {/* Role Title */}
+          <div>
+            <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
+              <Briefcase className="w-5 h-5 text-[#C14B30]" />
+              <span>Role Title (Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              placeholder="e.g., Senior Frontend Engineer"
+              className="w-full px-5 py-4 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all"
+            />
+          </div>
+
+          {/* Company Name */}
+          <div>
+            <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
+              <Briefcase className="w-5 h-5 text-[#C14B30]" />
+              <span>Company Name (Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g., Google, Microsoft"
+              className="w-full px-5 py-4 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all"
+            />
+          </div>
+
           {/* Job Description */}
           <div>
             <label className="flex items-center gap-2 mb-4 text-[#2C2416]">
@@ -104,22 +167,30 @@ export function UploadPage({ onStartInterview }: { onStartInterview?: () => void
             <p className="mt-3 text-[#6B5D4F] italic">Include job title, requirements, and responsibilities</p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="bg-[#C14B30]/10 border-2 border-[#C14B30]/30 rounded-2xl p-4 text-[#C14B30]">
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          )}
+
           {/* Submit Buttons */}
           <div>
             <p className="text-[#2C2416] mb-4">Select Interview Type:</p>
             <div className="grid md:grid-cols-3 gap-4">
               <button
                 type="button"
-                onClick={() => handleInterviewTypeSelect('technical')}
-                disabled={!canSelectInterviewType}
+                onClick={() => handleInterviewTypeSelect('Technical')}
+                disabled={!canSelectInterviewType || isLoading}
                 className={`flex flex-col items-center gap-3 py-6 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none group ${
-                  selectedInterviewType === 'technical'
+                  selectedInterviewType === 'Technical'
                     ? 'bg-[#C14B30] text-[#FDFCFA] ring-4 ring-[#C14B30]/30'
                     : 'bg-[#C14B30] text-[#FDFCFA] hover:bg-[#A03D24]'
                 } disabled:bg-[#E8E3D6] disabled:cursor-not-allowed disabled:text-[#6B5D4F]`}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  selectedInterviewType === 'technical' ? 'bg-white/20' : 'bg-white/10'
+                  selectedInterviewType === 'Technical' ? 'bg-white/20' : 'bg-white/10'
                 } group-disabled:bg-[#6B5D4F]/10`}>
                   <Code2 className="w-6 h-6" />
                 </div>
@@ -131,42 +202,42 @@ export function UploadPage({ onStartInterview }: { onStartInterview?: () => void
 
               <button
                 type="button"
-                onClick={() => handleInterviewTypeSelect('behavioural')}
-                disabled={!canSelectInterviewType}
+                onClick={() => handleInterviewTypeSelect('Behavioral')}
+                disabled={!canSelectInterviewType || isLoading}
                 className={`flex flex-col items-center gap-3 py-6 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none group ${
-                  selectedInterviewType === 'behavioural'
+                  selectedInterviewType === 'Behavioral'
                     ? 'bg-[#5A7C6F] text-[#FDFCFA] ring-4 ring-[#5A7C6F]/30'
                     : 'bg-[#5A7C6F] text-[#FDFCFA] hover:bg-[#4A6B5E]'
                 } disabled:bg-[#E8E3D6] disabled:cursor-not-allowed disabled:text-[#6B5D4F]`}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  selectedInterviewType === 'behavioural' ? 'bg-white/20' : 'bg-white/10'
+                  selectedInterviewType === 'Behavioral' ? 'bg-white/20' : 'bg-white/10'
                 } group-disabled:bg-[#6B5D4F]/10`}>
                   <Users2 className="w-6 h-6" />
                 </div>
                 <div className="text-center">
-                  <div className="mb-1" style={{ fontFamily: 'var(--font-serif)' }}>Behavioural</div>
+                  <div className="mb-1" style={{ fontFamily: 'var(--font-serif)' }}>Behavioral</div>
                   <p className="text-xs opacity-90">Soft skills & culture</p>
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInterviewTypeSelect('hybrid')}
-                disabled={!canSelectInterviewType}
+                onClick={() => handleInterviewTypeSelect('Mixed')}
+                disabled={!canSelectInterviewType || isLoading}
                 className={`flex flex-col items-center gap-3 py-6 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none group ${
-                  selectedInterviewType === 'hybrid'
+                  selectedInterviewType === 'Mixed'
                     ? 'bg-[#D4845C] text-[#FDFCFA] ring-4 ring-[#D4845C]/30'
                     : 'bg-[#D4845C] text-[#FDFCFA] hover:bg-[#C16F47]'
                 } disabled:bg-[#E8E3D6] disabled:cursor-not-allowed disabled:text-[#6B5D4F]`}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  selectedInterviewType === 'hybrid' ? 'bg-white/20' : 'bg-white/10'
+                  selectedInterviewType === 'Mixed' ? 'bg-white/20' : 'bg-white/10'
                 } group-disabled:bg-[#6B5D4F]/10`}>
                   <Boxes className="w-6 h-6" />
                 </div>
                 <div className="text-center">
-                  <div className="mb-1" style={{ fontFamily: 'var(--font-serif)' }}>Hybrid</div>
+                  <div className="mb-1" style={{ fontFamily: 'var(--font-serif)' }}>Mixed</div>
                   <p className="text-xs opacity-90">Both combined</p>
                 </div>
               </button>
@@ -178,10 +249,20 @@ export function UploadPage({ onStartInterview }: { onStartInterview?: () => void
                 <button
                   type="button"
                   onClick={handleStartInterview}
-                  className="group flex items-center gap-3 px-10 py-5 bg-[#2C2416] text-[#FDFCFA] rounded-2xl hover:bg-[#1F1910] transition-all shadow-xl hover:shadow-2xl hover:scale-105"
+                  disabled={isLoading}
+                  className="group flex items-center gap-3 px-10 py-5 bg-[#2C2416] text-[#FDFCFA] rounded-2xl hover:bg-[#1F1910] transition-all shadow-xl hover:shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  <span style={{ fontFamily: 'var(--font-serif)' }}>Start Interview</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span style={{ fontFamily: 'var(--font-serif)' }}>Setting up interview...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontFamily: 'var(--font-serif)' }}>Start Interview</span>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
                 </button>
               </div>
             )}

@@ -23,6 +23,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('upload');
   const [selectedInterview, setSelectedInterview] = useState<Interview | null>(null);
   const [isInInterview, setIsInInterview] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const handleViewInterview = (interview: Interview) => {
     setSelectedInterview(interview);
@@ -41,7 +42,8 @@ export default function App() {
     setIsInInterview(false);
   };
 
-  const handleStartInterview = () => {
+  const handleStartInterview = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
     setIsInInterview(true);
   };
 
@@ -58,8 +60,8 @@ export default function App() {
     return <InterviewDetail interview={selectedInterview} onClose={handleCloseDetail} />;
   }
 
-  if (isInInterview) {
-    return <InterviewPage onExit={handleExitInterview} />;
+  if (isInInterview && currentSessionId) {
+    return <InterviewPage sessionId={currentSessionId} onExit={handleExitInterview} />;
   }
 
   return (
