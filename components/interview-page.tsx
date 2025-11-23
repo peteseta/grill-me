@@ -237,9 +237,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
             conversation_id: conversationId
           });
 
-          // Success! Exit the retry loop
+          // Success! Exit the retry loop and redirect to history
           if (!abortAnalysisRef.current) {
-            alert('Interview completed! Check your history for detailed feedback.');
             onExit();
           }
           return;
