@@ -3,28 +3,25 @@
  * Handles user ID storage and retrieval
  */
 
-const USER_ID_KEY = 'grill_me_user_id';
+import { getAuthUserId } from './auth';
 
 /**
- * Get or create a user ID
- * For now, we use a simple UUID stored in localStorage
- * In production, this would be replaced with proper authentication
+ * Get the current user ID from authentication
+ * Returns the authenticated user's ID or throws an error if not logged in
  */
 export function getUserId(): string {
-  let userId = localStorage.getItem(USER_ID_KEY);
+  const authUserId = getAuthUserId();
 
-  if (!userId) {
-    // Generate a new UUID v4
-    userId = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, userId);
+  if (!authUserId) {
+    throw new Error('User not authenticated');
   }
 
-  return userId;
+  return authUserId;
 }
 
 /**
- * Clear the user ID (for testing purposes)
+ * Check if a user is currently authenticated
  */
-export function clearUserId(): void {
-  localStorage.removeItem(USER_ID_KEY);
+export function isUserAuthenticated(): boolean {
+  return getAuthUserId() !== null;
 }
