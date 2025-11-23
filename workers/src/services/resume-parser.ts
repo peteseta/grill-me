@@ -3,31 +3,13 @@
  * Extracts structured information from resume files
  */
 
-import { Env } from '@/types';
+import { Env } from '../types/env';
+import { ParsedResume } from '../types/database';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-
-export interface ParsedResume {
-  raw_text: string;
-  candidate_name?: string;
-  email?: string;
-  phone?: string;
-  skills?: string[];
-  experience?: {
-    company: string;
-    title: string;
-    duration?: string;
-    description?: string;
-  }[];
-  education?: {
-    institution: string;
-    degree?: string;
-    year?: string;
-  }[];
-}
 
 /**
  * Zod schema for structured output from gpt-5-nano

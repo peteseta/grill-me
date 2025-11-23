@@ -2,6 +2,28 @@
  * Database type definitions based on the Supabase schema
  */
 
+/**
+ * Parsed resume structure from resume parser service
+ */
+export interface ParsedResume {
+  raw_text: string;
+  candidate_name?: string;
+  email?: string;
+  phone?: string;
+  skills?: string[];
+  experience?: {
+    company: string;
+    title: string;
+    duration?: string;
+    description?: string;
+  }[];
+  education?: {
+    institution: string;
+    degree?: string;
+    year?: string;
+  }[];
+}
+
 export interface User {
   id: string; // UUID
   email: string;
@@ -20,7 +42,7 @@ export interface InterviewSession {
   elevenlabs_conversation_id?: string;
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
-  resume_text?: string;
+  parsed_resume?: ParsedResume;
 }
 
 export interface InterviewAnalysis {
