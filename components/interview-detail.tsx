@@ -336,7 +336,6 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   </div>
                 )}
               </div>
-              <p className="text-[#6B5D4F] mt-3">Duration: {interview.duration}</p>
             </div>
           </div>
         </div>
