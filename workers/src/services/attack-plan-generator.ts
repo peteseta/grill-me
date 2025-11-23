@@ -72,7 +72,7 @@ export async function generateAttackPlan(
   // Call OpenAI API with structured outputs
   const response = await openai.responses.parse({
     model: 'gpt-5.1',
-    reasoning: {effort: 'medium'},
+    reasoning: {effort: 'none'},
     input: [
       {
         role: 'system',
@@ -114,54 +114,6 @@ export async function generateAttackPlan(
   };
 }
 
-/**
- * Format parsed resume into a structured string for the LLM
- */
-function formatParsedResume(resume: ParsedResume): string {
-  let formatted = '';
-
-  // Candidate Info
-  if (resume.candidate_name) {
-    formatted += `CANDIDATE: ${resume.candidate_name}\n`;
-  }
-  if (resume.email) {
-    formatted += `EMAIL: ${resume.email}\n`;
-  }
-  if (resume.phone) {
-    formatted += `PHONE: ${resume.phone}\n`;
-  }
-
-  // Skills
-  if (resume.skills && resume.skills.length > 0) {
-    formatted += `\nSKILLS:\n${resume.skills.map(s => `  • ${s}`).join('\n')}\n`;
-  }
-
-  // Experience
-  if (resume.experience && resume.experience.length > 0) {
-    formatted += `\nEXPERIENCE:\n`;
-    resume.experience.forEach((exp, idx) => {
-      formatted += `  ${idx + 1}. ${exp.title} at ${exp.company}`;
-      if (exp.duration) formatted += ` (${exp.duration})`;
-      formatted += '\n';
-      if (exp.description) {
-        formatted += `     ${exp.description}\n`;
-      }
-    });
-  }
-
-  // Education
-  if (resume.education && resume.education.length > 0) {
-    formatted += `\nEDUCATION:\n`;
-    resume.education.forEach((edu, idx) => {
-      formatted += `  ${idx + 1}. ${edu.institution}`;
-      if (edu.degree) formatted += ` - ${edu.degree}`;
-      if (edu.year) formatted += ` (${edu.year})`;
-      formatted += '\n';
-    });
-  }
-
-  return formatted;
-}
 
 /**
  * Build the prompt for the LLM to generate an attack plan
@@ -175,7 +127,7 @@ function buildAttackPlanPrompt(input: AttackPlanInput): string {
 INPUT DATA:
 - Role Title: ${roleTitle}
 - Company: ${companyName || 'Not specified'} ${companyName ? `(Infer culture: e.g., Microsoft=Scale, Startup=Speed)` : ''}
-- Resume Text: ${resume.raw_text}
+- Resume: ${JSON.stringify(Object.fromEntries(Object.entries(resume).filter(([key]) => key !== 'raw_text')), null, 2)}
 - Job Description: ${jobDescription}
 
 ANALYSIS OBJECTIVES:
