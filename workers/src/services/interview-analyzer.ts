@@ -6,8 +6,8 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { Env } from '../types/env';
-import { TranscriptMessage, StructuredFeedbackItem } from '../types/database';
+import { Env } from '@/types';
+import { TranscriptMessage, StructuredFeedbackItem } from '@/types';
 
 export interface AnalysisResult {
   score_overall: number; // 1-10

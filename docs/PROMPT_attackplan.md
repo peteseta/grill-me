@@ -22,7 +22,7 @@ JSON STRUCTURE:
 {
 "candidate_name": "Extracted Name",
 "role_title": "Target Role",
-"difficulty_progression": "gradual" | "aggressive",
+"difficulty_progression": "gentle" | "moderate" | "aggressive",
 "overall_strategy": "1-2 sentences describing the persona the interviewer should adopt (e.g., 'Skeptical Senior Engineer' or 'Value-focused Product Lead').",
 "focus_areas": [
 {

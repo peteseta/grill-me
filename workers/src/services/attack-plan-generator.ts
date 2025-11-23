@@ -6,8 +6,8 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { Env } from '../types/env';
-import { AttackPlan } from '../types/database';
+import { Env } from '@/types';
+import { AttackPlan } from '@/types';
 import { ParsedResume } from './resume-parser';
 
 export interface AttackPlanInput {
@@ -33,7 +33,7 @@ const FocusAreaSchema = z.object({
 const AttackPlanSchema = z.object({
   candidate_name: z.string().describe('Extracted candidate name from resume'),
   role_title: z.string().describe('Target role title'),
-  difficulty_progression: z.enum(['gradual', 'aggressive']).describe('Interview difficulty approach'),
+  difficulty_progression: z.enum(['gentle', 'moderate', 'aggressive']).describe('Interview difficulty approach'),
   overall_strategy: z.string().describe('1-2 sentences describing the interviewer persona to adopt'),
   focus_areas: z.array(FocusAreaSchema).min(3).max(5).describe('3-5 distinct focus areas for the interview'),
   behavioral_themes: z.array(z.string()).describe('Key behavioral themes to explore'),
@@ -98,8 +98,7 @@ export async function generateAttackPlan(
   }
 
   // Map to database AttackPlan structure
-  const difficulty: 'gentle' | 'moderate' | 'aggressive' =
-    parsedPlan.difficulty_progression === 'gradual' ? 'moderate' : 'aggressive';
+  const difficulty: 'gentle' | 'moderate' | 'aggressive' = parsedPlan.difficulty_progression;
 
   const focus_areas = parsedPlan.focus_areas.map((area) => ({
     // Combine area and topic for a richer topic name

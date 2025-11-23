@@ -3,7 +3,7 @@
  * Extracts structured information from resume files
  */
 
-import { Env } from '../types/env';
+import { Env } from '@/types';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
