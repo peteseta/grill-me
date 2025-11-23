@@ -5,12 +5,12 @@
  */
 
 import { Context } from 'hono';
-import { Env } from '../types/env';
-import { CreateSessionResponse, SessionListResponse } from '../types/api';
-import { getSupabaseClient, Database } from '../utils/supabase';
-import { parseResume } from '../services/resume-parser';
-import { generateAttackPlan } from '../services/attack-plan-generator';
-import { success, created, badRequest, notFound } from '../utils/response';
+import { Env } from '@/types';
+import { CreateSessionResponse, SessionListResponse } from '@/types';
+import { getSupabaseClient, Database } from '@/utils';
+import { parseResume } from '@/services';
+import { generateAttackPlan } from '@/services';
+import { success, created, badRequest } from '@/utils';
 
 /**
  * POST /api/v1/sessions
