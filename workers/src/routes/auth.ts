@@ -48,25 +48,8 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
       return badRequest(`Registration failed: ${error.message}`);
     }
 
-    // Log the full response for debugging
-    console.log('Supabase signUp response:', {
-      hasUser: !!data.user,
-      hasSession: !!data.session,
-      userId: data.user?.id
-    });
-
-    if (!data.user) {
-      return badRequest('Registration failed: No user data returned from Supabase');
-    }
-
-    // Handle case where email confirmation is required
-    if (!data.session) {
-      console.log('No session returned - email confirmation may be required');
-      return badRequest(
-        'Registration requires email confirmation. Please check your Supabase settings ' +
-        '(Authentication → Providers → Email) and disable "Confirm email" for development, ' +
-        'or check your email for confirmation link.'
-      );
+    if (!data.user || !data.session) {
+      return badRequest('Registration failed: No user data returned');
     }
 
     // Return response

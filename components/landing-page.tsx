@@ -1,8 +1,6 @@
 import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, TrendingUp, Star, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { apiClient } from '../lib/api-client';
-import { setUserSession } from '../lib/user';
 import { useAuth } from '../lib/auth';
 
 interface LandingPageProps {
@@ -16,32 +14,32 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(null);
-    setIsAuthLoading(true);
+    setError(null);
+    setIsSubmitting(true);
 
     try {
-      if (authMode === 'signup') {
-        // Register new user
-        const response = await apiClient.register({ email, password });
-        setUserSession(response);
+      let result;
+      if (authMode === 'login') {
+        result = await login(email, password);
+      } else {
+        result = await register(email, password, name);
+      }
+
+      if (result.success) {
         setShowAuthDialog(false);
         onGetStarted();
       } else {
-        // Login existing user
-        const response = await apiClient.login({ email, password });
-        setUserSession(response);
-        setShowAuthDialog(false);
-        onGetStarted();
+        setError(result.error || 'Authentication failed');
       }
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Authentication failed');
+    } catch {
+      setError('An unexpected error occurred');
     } finally {
-      setIsAuthLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -51,7 +49,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     setEmail('');
     setPassword('');
     setName('');
-    setAuthError(null);
+    setError(null);
   };
 
   return (
@@ -104,9 +102,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </DialogHeader>
 
           <form onSubmit={handleAuthSubmit} className="space-y-5 mt-4">
-            {authError && (
-              <div className="px-4 py-3 bg-red-50 border-2 border-red-200 text-red-700 rounded-xl">
-                {authError}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
               </div>
             )}
 
@@ -121,7 +119,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter your full name"
                   required
-                  disabled={isAuthLoading}
+                  disabled={isSubmitting}
                   className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
                 />
               </div>
@@ -137,7 +135,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
-                disabled={isAuthLoading}
+                disabled={isSubmitting}
                 className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
               />
             </div>
@@ -152,24 +150,26 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                disabled={isSubmitting}
                 minLength={6}
-                disabled={isAuthLoading}
                 className="w-full px-4 py-3 bg-[#F5F1E8]/50 border-2 border-[#2C2416]/10 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C14B30]/30 focus:border-[#C14B30]/30 transition-all disabled:opacity-50"
               />
-              {authMode === 'signup' && (
-                <p className="text-[#6B5D4F] text-sm mt-1">
-                  Must be at least 6 characters
-                </p>
-              )}
             </div>
 
             <button
               type="submit"
-              disabled={isAuthLoading}
-              className="w-full py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+              className="w-full py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              {isAuthLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Sign Up')}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {authMode === 'login' ? 'Logging in...' : 'Signing up...'}
+                </>
+              ) : (
+                authMode === 'login' ? 'Log In' : 'Sign Up'
+              )}
             </button>
 
             <div className="text-center">

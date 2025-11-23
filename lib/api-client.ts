@@ -92,30 +92,6 @@ export interface AnalyzeSessionResponse {
 }
 
 /**
- * Auth API types
- */
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-  };
-  session: {
-    access_token: string;
-    refresh_token: string;
-  };
-}
-
-/**
  * API Client class
  */
 class ApiClient {
@@ -244,48 +220,6 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Failed to get session results: ${error}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * POST /api/v1/auth/register
-   * Register a new user
-   */
-  async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/api/v1/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Registration failed');
-    }
-
-    return response.json();
-  }
-
-  /**
-   * POST /api/v1/auth/login
-   * Login user
-   */
-  async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Login failed');
     }
 
     return response.json();

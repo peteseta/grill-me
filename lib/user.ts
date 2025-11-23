@@ -1,79 +1,27 @@
 /**
  * User management utilities
- * Handles user authentication and session storage
+ * Handles user ID storage and retrieval
  */
 
-const USER_SESSION_KEY = 'grill_me_user_session';
-
-export interface UserSession {
-  user: {
-    id: string;
-    email: string;
-  };
-  session: {
-    access_token: string;
-    refresh_token: string;
-  };
-}
+import { getAuthUserId } from './auth';
 
 /**
- * Store user session in localStorage
- */
-export function setUserSession(session: UserSession): void {
-  localStorage.setItem(USER_SESSION_KEY, JSON.stringify(session));
-}
-
-/**
- * Get user session from localStorage
- */
-export function getUserSession(): UserSession | null {
-  const sessionStr = localStorage.getItem(USER_SESSION_KEY);
-  if (!sessionStr) return null;
-
-  try {
-    return JSON.parse(sessionStr);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Get user ID (for backward compatibility and when user is logged in)
+ * Get the current user ID from authentication
+ * Returns the authenticated user's ID or throws an error if not logged in
  */
 export function getUserId(): string {
-  const session = getUserSession();
-  if (session) {
-    return session.user.id;
+  const authUserId = getAuthUserId();
+
+  if (!authUserId) {
+    throw new Error('User not authenticated');
   }
 
-  // Fallback: generate a temporary ID for non-authenticated users
-  // This allows the app to work without login for testing
-  const tempId = localStorage.getItem('grill_me_temp_user_id');
-  if (tempId) return tempId;
-
-  const newTempId = crypto.randomUUID();
-  localStorage.setItem('grill_me_temp_user_id', newTempId);
-  return newTempId;
+  return authUserId;
 }
 
 /**
- * Check if user is authenticated
+ * Check if a user is currently authenticated
  */
-export function isAuthenticated(): boolean {
-  return getUserSession() !== null;
-}
-
-/**
- * Clear user session (logout)
- */
-export function clearUserSession(): void {
-  localStorage.removeItem(USER_SESSION_KEY);
-}
-
-/**
- * Get access token for API requests
- */
-export function getAccessToken(): string | null {
-  const session = getUserSession();
-  return session?.session.access_token || null;
+export function isUserAuthenticated(): boolean {
+  return getAuthUserId() !== null;
 }
