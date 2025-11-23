@@ -110,20 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Register function
-  const register = async (email: string, password: string, _name?: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (email: string, password: string, name?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         return { success: false, error: data.error || 'Registration failed' };
+      }
+
+      // Handle email confirmation required case
+      if (data.requiresConfirmation) {
+        return { success: false, error: data.message || 'Please check your email to confirm your account.' };
+      }
+
+      // Check if we got a valid session
+      if (!data.session) {
+        return { success: false, error: 'Registration failed: No session returned' };
       }
 
       const { user, session } = data;

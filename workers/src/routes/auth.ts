@@ -18,7 +18,7 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
   try {
     // Parse request body
     const body = await c.req.json();
-    const { email, password } = body;
+    const { email, password, name } = body;
 
     // Validate inputs
     if (!email || !password) {
@@ -41,6 +41,11 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: name || '',
+        },
+      },
     });
 
     if (error) {
@@ -48,11 +53,49 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
       return badRequest(`Registration failed: ${error.message}`);
     }
 
-    if (!data.user || !data.session) {
+    if (!data.user) {
       return badRequest('Registration failed: No user data returned');
     }
 
-    // Return response
+    // Handle case where email confirmation is required (session will be null)
+    if (!data.session) {
+      // User created but needs email confirmation
+      // For now, we'll auto-sign them in using signInWithPassword
+      // This works if email confirmation is disabled in Supabase
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError || !signInData.session) {
+        // Email confirmation is required - return success but indicate confirmation needed
+        return success({
+          user: {
+            id: data.user.id,
+            email: data.user.email || email,
+          },
+          session: null,
+          message: 'Registration successful. Please check your email to confirm your account.',
+          requiresConfirmation: true,
+        });
+      }
+
+      // Auto-sign in successful
+      const response: RegisterResponse = {
+        user: {
+          id: signInData.user.id,
+          email: signInData.user.email || email,
+        },
+        session: {
+          access_token: signInData.session.access_token,
+          refresh_token: signInData.session.refresh_token,
+        },
+      };
+
+      return created(response);
+    }
+
+    // Return response with session
     const response: RegisterResponse = {
       user: {
         id: data.user.id,
