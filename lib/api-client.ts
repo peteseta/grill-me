@@ -3,7 +3,9 @@
  * Handles all communication with the Cloudflare Workers backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+// In development with Vite proxy, use empty string for relative URLs
+// In production, use the full backend URL from environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Session API types
