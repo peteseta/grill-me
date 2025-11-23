@@ -17,9 +17,6 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
   GOOGLE_API_KEY?: string;
 
-  // Any R2 buckets for audio storage (if needed)
-  AUDIO_BUCKET?: R2Bucket;
-
   // KV namespaces (if needed for caching)
   CACHE?: KVNamespace;
 }
