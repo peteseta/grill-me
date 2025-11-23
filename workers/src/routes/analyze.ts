@@ -93,6 +93,7 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
       summary_feedback: analysis.summary_feedback,
       full_transcript_json: transcript,
       structured_feedback: analysis.structured_feedback,
+      audio_url: audioUrl,
     };
 
     return success(response);
@@ -134,6 +135,7 @@ export async function getSessionResults(c: Context<{ Bindings: Env }>): Promise<
       summary_feedback: analysis.feedback_summary || '',
       full_transcript_json: analysis.full_transcript_json || [],
       structured_feedback: analysis.structured_feedback || [],
+      audio_url: analysis.audio_url,
     };
 
     return success(response);

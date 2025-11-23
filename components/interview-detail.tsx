@@ -69,8 +69,8 @@ interface InterviewDetailProps {
 export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(952);
-  const audioRef = useRef<HTMLDivElement>(null);
+  const [duration, setDuration] = useState(952);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [sessionData, setSessionData] = useState<AnalyzeSessionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,37 +95,59 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
     loadSessionResults();
   }, [interview.id]);
 
+  // Sync audio player state
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return duration;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, duration]);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(Math.floor(audio.currentTime));
+    const updateDuration = () => setDuration(Math.floor(audio.duration));
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [sessionData?.audio_url]);
 
   const togglePlayPause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
     setIsPlaying(!isPlaying);
   };
 
   const jumpToTime = (time: number) => {
-    setCurrentTime(time);
-    setIsPlaying(true);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.currentTime = time;
+    if (!isPlaying) {
+      audio.play();
+      setIsPlaying(true);
+    }
   };
 
   const skipBackward = () => {
-    setCurrentTime(Math.max(0, currentTime - 15));
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, audio.currentTime - 15);
   };
 
   const skipForward = () => {
-    setCurrentTime(Math.min(duration, currentTime + 15));
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.min(duration, audio.currentTime + 15);
   };
 
   const formatTime = (seconds: number) => {
@@ -152,8 +174,8 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
     description: feedback.feedback,
   })) || [];
 
-  const blunders = timestamps.filter(t => t.type === 'blunder');
-  const excellentMoments = timestamps.filter(t => t.type === 'excellent');
+  const blunders = timestamps.filter(t => t.type === 'blunder'); // Includes 'warning' and 'negative'
+  const excellentMoments = timestamps.filter(t => t.type === 'excellent'); // Only 'positive'
 
   // Display loading state
   if (isLoading) {
@@ -214,11 +236,32 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
               <p className="text-[#6B5D4F] italic">{formatDate(interview.date)}</p>
             </div>
             <div className="text-right">
-              <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl mb-2">
-                <Star className="w-6 h-6 text-[#C14B30]" />
-                <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Score: {interview.score}%</span>
+              <div className="space-y-2">
+                {sessionData?.metrics ? (
+                  <>
+                    <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                      <Star className="w-6 h-6 text-[#C14B30]" />
+                      <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>
+                        Overall: {Math.round(sessionData.metrics.score_overall * 10)}%
+                      </span>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <div className="px-4 py-2 bg-[#5A7C6F]/10 border-2 border-[#5A7C6F]/20 rounded-xl text-sm">
+                        <span className="text-[#5A7C6F] font-medium">Technical: {sessionData.metrics.score_technical}%</span>
+                      </div>
+                      <div className="px-4 py-2 bg-[#D4845C]/10 border-2 border-[#D4845C]/20 rounded-xl text-sm">
+                        <span className="text-[#D4845C] font-medium">BS Detector: {100 - sessionData.metrics.score_bullshit}%</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
+                    <Star className="w-6 h-6 text-[#C14B30]" />
+                    <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Score: TODO</span>
+                  </div>
+                )}
               </div>
-              <p className="text-[#6B5D4F]">Duration: {interview.duration}</p>
+              <p className="text-[#6B5D4F] mt-3">Duration: {interview.duration}</p>
             </div>
           </div>
         </div>
@@ -231,7 +274,20 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
             {/* Voice Memo Style Player */}
             <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10">
               <h2 className="text-[#2C2416] mb-8" style={{ fontFamily: 'var(--font-serif)' }}>Recording Playback</h2>
-              
+
+              {/* Hidden Audio Element */}
+              {sessionData?.audio_url && (
+                <audio ref={audioRef} src={sessionData.audio_url} preload="metadata" />
+              )}
+
+              {!sessionData?.audio_url && (
+                <div className="text-center py-12 text-[#6B5D4F]">
+                  <p>Audio recording not available for this interview.</p>
+                </div>
+              )}
+
+              {sessionData?.audio_url && (
+                <>
               {/* Waveform Visualization */}
               <div className="relative h-36 bg-[#F5F1E8] rounded-2xl mb-8 flex items-center justify-center px-4 border-2 border-[#2C2416]/5">
                 <div className="flex items-center gap-1 h-full w-full">
@@ -305,6 +361,8 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   <SkipForward className="w-6 h-6 text-[#2C2416]" />
                 </button>
               </div>
+              </>
+              )}
             </div>
 
             {/* Summary Stats */}

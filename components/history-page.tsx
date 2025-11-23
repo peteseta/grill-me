@@ -30,8 +30,8 @@ export function HistoryPage({ onViewInterview }: HistoryPageProps) {
         id: session.session_id,
         date: session.created_at,
         position: session.role_title,
-        company: session.company_name || 'Unknown Company',
-        duration: '00:00', // We don't have duration from the API yet
+        company: session.company_name || 'Company not specified',
+        duration: 'TODO', // Duration not yet implemented
         score: session.scores?.score_overall ? Math.round(session.scores.score_overall * 10) : 0,
         status: session.status === 'completed' ? 'completed' : 'in-progress',
       }));

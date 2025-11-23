@@ -68,6 +68,7 @@ export interface AnalyzeSessionResponse {
   summary_feedback: string;
   full_transcript_json: TranscriptMessage[];
   structured_feedback: StructuredFeedbackItem[];
+  audio_url?: string;
 }
 
 /**
@@ -82,6 +83,7 @@ export interface SessionListItem {
   scores?: {
     score_overall: number;
     score_bullshit: number;
+    score_technical: number;
   } | null;
 }
 
