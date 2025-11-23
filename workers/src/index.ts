@@ -13,6 +13,7 @@ import { createSession, listSessions } from './routes/sessions';
 import { getSessionConfig } from './routes/session-config';
 import { handleLifeline } from './routes/lifeline';
 import { analyzeSession, getSessionResults } from './routes/analyze';
+import { addToWaitlist } from './routes/waitlist';
 
 // Initialize Hono app with environment bindings
 const app = new Hono<{ Bindings: Env }>();
@@ -36,6 +37,9 @@ app.get('/health', (c) => {
 // Authentication
 app.post('/api/v1/auth/register', register);
 app.post('/api/v1/auth/login', login);
+
+// Waitlist
+app.post('/api/v1/waitlist', addToWaitlist);
 
 // Session management
 app.post('/api/v1/sessions', createSession);

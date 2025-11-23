@@ -13,8 +13,13 @@ import { success, created, badRequest } from '@/utils';
 /**
  * POST /api/v1/auth/register
  * Register a new user with email and password
+ * NOTE: Currently disabled - users must join waitlist
  */
 export async function register(c: Context<{ Bindings: Env }>): Promise<Response> {
+  // Signups are currently disabled - redirect to waitlist
+  return badRequest('Signups are currently closed. Please join our waitlist to get early access!');
+
+  /* DISABLED - Original registration logic
   try {
     // Parse request body
     const body = await c.req.json();
@@ -112,6 +117,7 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
     console.error('Error during registration:', error);
     return badRequest(`Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+  */
 }
 
 /**

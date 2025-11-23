@@ -2,6 +2,7 @@ import { Sparkles, Mic, BarChart3, Clock, ArrowRight, CheckCircle2, Users, Trend
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { useAuth } from '../lib/auth';
+import { apiClient } from '../lib/api-client';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -16,6 +17,12 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Waitlist state
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +59,22 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     setError(null);
   };
 
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWaitlistError(null);
+    setIsWaitlistSubmitting(true);
+
+    try {
+      await apiClient.addToWaitlist(waitlistEmail);
+      setWaitlistSuccess(true);
+      setWaitlistEmail('');
+    } catch (err) {
+      setWaitlistError(err instanceof Error ? err.message : 'Failed to join waitlist');
+    } finally {
+      setIsWaitlistSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F1E8]">
       {/* Navigation */}
@@ -72,15 +95,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => openAuthDialog('login')}
-                className="text-[#2C2416] px-6 py-2.5 rounded-full hover:bg-[#F5F1E8] transition-colors"
-              >
-                Log In
-              </button>
-              <button
-                onClick={() => openAuthDialog('signup')}
                 className="bg-[#C14B30] text-white px-6 py-2.5 rounded-full hover:bg-[#A03D24] transition-colors shadow-sm"
               >
-                Sign Up
+                Log In
               </button>
             </div>
           </div>
@@ -92,15 +109,32 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <DialogContent className="bg-[#FDFCFA] border-2 border-[#2C2416]/10 rounded-3xl max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[#2C2416] text-center" style={{ fontFamily: 'var(--font-serif)' }}>
-              {authMode === 'login' ? 'Welcome Back' : 'Create Your Account'}
+              {authMode === 'login' ? 'Welcome Back' : 'Join the Waitlist'}
             </DialogTitle>
             <DialogDescription className="text-[#6B5D4F] text-center">
-              {authMode === 'login' 
-                ? 'Log in to continue practicing your interview skills' 
-                : 'Sign up to start your interview practice journey'}
+              {authMode === 'login'
+                ? 'Log in to continue practicing your interview skills'
+                : 'We\'re currently in closed beta. Join our waitlist for early access!'}
             </DialogDescription>
           </DialogHeader>
 
+          {authMode === 'signup' ? (
+            <div className="mt-4 text-center">
+              <p className="text-[#6B5D4F] mb-4">
+                Signups are currently closed. We're accepting a limited number of users during our beta.
+              </p>
+              <p className="text-[#2C2416] mb-4" style={{ fontFamily: 'var(--font-serif)' }}>
+                Join the waitlist below to get early access!
+              </p>
+              <button
+                onClick={() => setShowAuthDialog(false)}
+                className="w-full py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl"
+                style={{ fontFamily: 'var(--font-serif)' }}
+              >
+                Got it
+              </button>
+            </div>
+          ) : (
           <form onSubmit={handleAuthSubmit} className="space-y-5 mt-4">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
@@ -183,11 +217,12 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 className="text-[#6B5D4F] hover:text-[#C14B30] transition-colors disabled:opacity-50"
               >
                 {authMode === 'login'
-                  ? "Don't have an account? Sign up"
+                  ? "Don't have an account? Join waitlist"
                   : 'Already have an account? Log in'}
               </button>
             </div>
           </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -233,24 +268,72 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
 
             <p className="text-[#6B5D4F] max-w-2xl mx-auto mb-10 text-lg">
-              Get interviewed by an AI-powered agent with feedback on your interview performance, 
+              Get interviewed by an AI-powered agent with feedback on your interview performance,
               identify your strengths, and improve where it matters most.
             </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <button
-                onClick={() => openAuthDialog('signup')}
-                className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
-              >
-                Start Practicing Free
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => openAuthDialog('login')}
-                className="inline-flex items-center gap-2 bg-[#F5F1E8] text-[#2C2416] px-8 py-4 rounded-full hover:bg-[#E8E2D3] transition-colors border border-[#2C2416]/10"
-              >
-                Watch Demo
-              </button>
+
+            {/* Waitlist Form */}
+            <div className="max-w-md mx-auto mb-12">
+              {waitlistSuccess ? (
+                <div className="bg-[#5A7C6F]/10 border-2 border-[#5A7C6F] rounded-2xl p-6 text-center animate-in fade-in duration-500">
+                  <CheckCircle2 className="w-12 h-12 text-[#5A7C6F] mx-auto mb-3" />
+                  <p className="text-[#2C2416] mb-1" style={{ fontFamily: 'var(--font-serif)' }}>
+                    You're on the list!
+                  </p>
+                  <p className="text-[#6B5D4F] text-sm">
+                    We'll reach out when it's your turn.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                  <div className="relative">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-[#C14B30] to-[#D4845C] rounded-2xl opacity-75 blur-lg animate-pulse"></div>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={waitlistEmail}
+                        onChange={(e) => setWaitlistEmail(e.target.value)}
+                        placeholder="Enter your email for early access"
+                        required
+                        disabled={isWaitlistSubmitting}
+                        className="w-full px-6 py-4 bg-[#FDFCFA] border-2 border-[#C14B30]/30 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#C14B30] focus:border-[#C14B30] transition-all disabled:opacity-50 text-lg"
+                      />
+                    </div>
+                  </div>
+
+                  {waitlistError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center">
+                      {waitlistError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isWaitlistSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-2xl hover:bg-[#A03D24] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg relative overflow-hidden group"
+                    style={{ fontFamily: 'var(--font-serif)' }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#A03D24] to-[#C14B30] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <span className="relative">
+                      {isWaitlistSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
+                          Joining...
+                        </>
+                      ) : (
+                        <>
+                          Join the Waitlist
+                          <ArrowRight className="w-5 h-5 inline ml-2" />
+                        </>
+                      )}
+                    </span>
+                  </button>
+                </form>
+              )}
+
+              <p className="text-[#6B5D4F] text-sm text-center mt-4">
+                Limited spots available. Early access launching soon.
+              </p>
             </div>
 
             {/* Stats */}
@@ -455,16 +538,52 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             Ready to ace your next interview?
           </h2>
           <p className="text-[#6B5D4F] mb-12 max-w-2xl mx-auto">
-            Join countless job seekers who are using GrillMe AI to practice, 
-            improve, and land their dream roles with confidence.
+            Join the waitlist to get early access and be among the first to transform your interview skills.
           </p>
-          <button
-            onClick={() => openAuthDialog('signup')}
-            className="inline-flex items-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl"
-          >
-            Start Practicing Now
-            <ArrowRight className="w-5 h-5" />
-          </button>
+
+          {/* Waitlist Form - Bottom CTA */}
+          <div className="max-w-md mx-auto">
+            {waitlistSuccess ? (
+              <div className="bg-[#5A7C6F]/10 border-2 border-[#5A7C6F] rounded-2xl p-6 text-center">
+                <CheckCircle2 className="w-12 h-12 text-[#5A7C6F] mx-auto mb-3" />
+                <p className="text-[#2C2416] mb-1" style={{ fontFamily: 'var(--font-serif)' }}>
+                  You're already on the list!
+                </p>
+                <p className="text-[#6B5D4F] text-sm">
+                  We'll be in touch soon.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleWaitlistSubmit} className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  value={waitlistEmail}
+                  onChange={(e) => setWaitlistEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                  disabled={isWaitlistSubmitting}
+                  className="flex-1 px-6 py-4 bg-[#FDFCFA] border-2 border-[#2C2416]/20 text-[#2C2416] placeholder-[#6B5D4F]/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#C14B30] focus:border-[#C14B30] transition-all disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={isWaitlistSubmitting}
+                  className="inline-flex items-center justify-center gap-2 bg-[#C14B30] text-white px-8 py-4 rounded-full hover:bg-[#A03D24] transition-colors shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {isWaitlistSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    <>
+                      Join Waitlist
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </section>
 

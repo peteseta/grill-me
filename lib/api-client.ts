@@ -96,6 +96,14 @@ export interface AnalyzeSessionResponse {
   audio_url?: string;
 }
 
+export interface WaitlistRequest {
+  email: string;
+}
+
+export interface WaitlistResponse {
+  message: string;
+}
+
 /**
  * API Client class
  */
@@ -220,6 +228,27 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Failed to get session results: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * POST /api/v1/waitlist
+   * Add email to waitlist
+   */
+  async addToWaitlist(email: string): Promise<WaitlistResponse> {
+    const response = await fetch(`${this.baseUrl}/api/v1/waitlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to add to waitlist: ${error}`);
     }
 
     return response.json();
