@@ -8,6 +8,7 @@ import { cors } from 'hono/cors';
 import { Env } from './types/env';
 
 // Route handlers
+import { register, login } from './routes/auth';
 import { createSession, listSessions } from './routes/sessions';
 import { getSessionConfig } from './routes/session-config';
 import { handleLifeline } from './routes/lifeline';
@@ -31,6 +32,10 @@ app.get('/health', (c) => {
 /**
  * API Routes
  */
+
+// Authentication
+app.post('/api/v1/auth/register', register);
+app.post('/api/v1/auth/login', login);
 
 // Session management
 app.post('/api/v1/sessions', createSession);
