@@ -48,7 +48,12 @@ const mockSession = {
   status: 'in_progress' as const,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  resume_text: 'John Doe\nSoftware Engineer',
+  parsed_resume: {
+    raw_text: 'John Doe\nSoftware Engineer',
+    candidate_name: 'John Doe',
+    email: 'john@example.com',
+    skills: ['React', 'TypeScript', 'Node.js'],
+  },
 };
 
 const mockAnalysis = {
@@ -143,7 +148,7 @@ describe('analyzeSession', () => {
 
   it('should successfully analyze an interview session', async () => {
     const response = await analyzeSession(mockContext);
-    const data = await response.json();
+    const data = await response.json() as any;
 
     expect(response.status).toBe(200);
     expect(data.session_id).toBe(mockSessionId);
@@ -159,7 +164,7 @@ describe('analyzeSession', () => {
     mockContext.req.json = vi.fn(() => Promise.resolve({}));
     
     const response = await analyzeSession(mockContext);
-    const data = await response.json();
+    const data = await response.json() as any;
 
     expect(response.status).toBe(400);
     expect(data.error).toBe('Missing conversation_id');
@@ -183,7 +188,7 @@ describe('getSessionResults', () => {
 
   it('should retrieve cached analysis results', async () => {
     const response = await getSessionResults(mockContext);
-    const data = await response.json();
+    const data = await response.json() as any;
 
     expect(response.status).toBe(200);
     expect(data.session_id).toBe(mockSessionId);
