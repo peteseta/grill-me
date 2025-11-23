@@ -3,6 +3,7 @@
  * Provides real-time assistance to users during the interview
  */
 
+import OpenAI from 'openai';
 import { Env } from '../types/env';
 import { LifelineRequest, LifelineResponse } from '../types/api';
 
@@ -33,6 +34,11 @@ export async function generateLifelineAdvice(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
+  // Initialize OpenAI client
+  const openai = new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
+
   // 1. Construct prompt with conversation history
   const conversationContext = request.transcript_history
     .map((msg) => `${msg.role === 'agent' ? 'Interviewer' : 'Candidate'}: ${msg.text}`)
@@ -58,31 +64,18 @@ ${conversationContext}
 Provide tactical advice and a suggested opening line in JSON format.`;
 
   // 2. Call OpenAI API (GPT-4o-mini for speed)
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 300,
-    }),
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.7,
+    max_tokens: 300,
   });
 
-  if (!response.ok) {
-    const errorData = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  const content = completion.choices[0]?.message?.content;
 
   if (!content) {
     throw new Error('No content returned from OpenAI API');
