@@ -100,9 +100,9 @@ ${text}
 
 Extract all relevant information accurately.`;
 
-  // Call OpenAI API with structured outputs (gpt-5-nano for efficient parsing)
+  // Call OpenAI API with structured outputs
   const response = await openai.responses.parse({
-    model: 'gpt-5-nano',
+    model: 'gpt-4.1-nano',
     input: [
       {
         role: 'system',
