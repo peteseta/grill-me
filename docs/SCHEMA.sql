@@ -27,7 +27,7 @@ CREATE TABLE public.interview_sessions (
                                            elevenlabs_conversation_id text,
                                            created_at timestamp with time zone DEFAULT now(),
                                            updated_at timestamp with time zone DEFAULT now(),
-                                           resume_text text,
+                                           parsed_resume jsonb,
                                            CONSTRAINT interview_sessions_pkey PRIMARY KEY (id),
                                            CONSTRAINT interview_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
