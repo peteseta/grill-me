@@ -15,7 +15,6 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const isDemoMode = sessionId === 'demo';
   
   const [interviewState, setInterviewState] = useState<InterviewState>(isDemoMode ? 'ready' : 'loading');
-  const [currentQuestion, _setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(0);
@@ -30,18 +29,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     }
   } : null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{ source: 'agent' | 'user', message: string }>>([]);
   const conversationRef = useRef<Conversation | null>(null);
   const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
   const abortAnalysisRef = useRef<boolean>(false);
-
-  // Mock questions for now - these will come from ElevenLabs
-  const mockQuestions = [
-    "Tell me about yourself and your background.",
-    "Why are you interested in this position?",
-    "Describe a challenging project you've worked on and how you handled it.",
-    "What are your greatest strengths and weaknesses?",
-    "Where do you see yourself in five years?",
-  ];
 
   useEffect(() => {
     // Skip initialization in demo mode
@@ -106,6 +97,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
           },
           onMessage: ({ message, source }) => {
             console.log(`Message from ${source}:`, message);
+            // Add message to chat history
+            setChatHistory(prev => [...prev, { source: source as 'agent' | 'user', message }]);
             if (source === 'user') {
               setIsRecording(false);
               setInterviewState('processing');
@@ -425,7 +418,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
                 </p>
               )}
               {interviewState !== 'ready' && (
-                <p className="text-[#6B5D4F] mt-1">Question {currentQuestion + 1} of {mockQuestions.length} • {formatTime(elapsedTime)}</p>
+                <p className="text-[#6B5D4F] mt-1">{formatTime(elapsedTime)}</p>
               )}
             </div>
             <button
@@ -459,8 +452,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
               </div>
             )}
             <p className="text-[#6B5D4F] mb-10 max-w-2xl mx-auto leading-relaxed">
-              You'll be asked {mockQuestions.length} questions. Answer naturally and take your time.
-              The AI will provide real-time feedback on your responses.
+              Answer naturally and take your time during the conversation.
+              The AI will provide feedback on your responses when you finish.
             </p>
             <button
               onClick={startInterview}
@@ -589,47 +582,43 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
               </div>
             </div>
 
-            {/* Right Column - Current Question & Progress */}
+            {/* Right Column - Conversation History */}
             <div className="space-y-6">
-              {/* Progress Bar */}
-              <div className="bg-[#FDFCFA] rounded-2xl border-2 border-[#2C2416]/10 p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[#2C2416]">Progress</span>
-                  <span className="text-[#6B5D4F]">{currentQuestion + 1} / {mockQuestions.length}</span>
-                </div>
-                <div className="w-full bg-[#E8E3D6] rounded-full h-3 shadow-inner">
-                  <div
-                    className="bg-gradient-to-r from-[#C14B30] to-[#D4845C] h-3 rounded-full transition-all duration-300 shadow-sm"
-                    style={{ width: `${((currentQuestion + 1) / mockQuestions.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-
               {/* Current Question Card */}
               <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10 min-h-[600px] flex flex-col">
                 <div className="mb-6">
-                  <div className="inline-flex items-center gap-2 bg-[#C14B30]/10 px-4 py-2 rounded-full border border-[#C14B30]/20">
-                    <span className="text-[#C14B30]">Question {currentQuestion + 1}</span>
-                  </div>
+                  <h3 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Conversation</h3>
                 </div>
 
-                <h2 className="text-[#2C2416] mb-8 leading-relaxed flex-grow" style={{ fontFamily: 'var(--font-serif)' }}>
-                  {mockQuestions[currentQuestion]}
-                </h2>
+                {/* Chat History */}
+                <div className="flex-grow space-y-6 mb-8 overflow-y-auto">
+                  {chatHistory.length === 0 ? (
+                    <p className="text-[#6B5D4F] italic">Waiting for conversation to start...</p>
+                  ) : (
+                    chatHistory.map((msg, idx) => (
+                      <div key={idx} className={`${msg.source === 'agent' ? 'bg-[#C14B30]/5 border-[#C14B30]/20' : 'bg-[#5A7C6F]/5 border-[#5A7C6F]/20'} border-2 rounded-2xl p-6`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`text-sm font-medium ${msg.source === 'agent' ? 'text-[#C14B30]' : 'text-[#5A7C6F]'}`}>
+                            {msg.source === 'agent' ? '🤖 Interviewer' : '👤 You'}
+                          </span>
+                        </div>
+                        <p className="text-[#2C2416] leading-relaxed">{msg.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
 
                 {/* Interview Tips */}
                 <div className="bg-[#5A7C6F]/5 border-2 border-[#5A7C6F]/20 rounded-2xl p-6">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-[#5A7C6F] flex-shrink-0 mt-1" />
                     <div>
-                      <h4 className="text-[#2C2416] mb-2">💡 Tip</h4>
-                      <p className="text-[#6B5D4F] leading-relaxed">
-                        {currentQuestion === 0 && "Keep your introduction concise and highlight key experiences relevant to the role."}
-                        {currentQuestion === 1 && "Connect your skills and experience to specific aspects of the role and company."}
-                        {currentQuestion === 2 && "Use the STAR method: Situation, Task, Action, Result."}
-                        {currentQuestion === 3 && "Be honest but strategic. Frame weaknesses as areas of growth."}
-                        {currentQuestion === 4 && "Show ambition while demonstrating commitment to the role."}
-                      </p>
+                      <h4 className="text-[#2C2416] mb-2">💡 Tips</h4>
+                      <ul className="text-[#6B5D4F] leading-relaxed space-y-2">
+                        <li>• Answer naturally and take your time</li>
+                        <li>• Use specific examples from your experience</li>
+                        <li>• Ask for clarification if you need it</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
