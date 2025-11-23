@@ -36,16 +36,16 @@ const mockSession = {
   updated_at: new Date().toISOString(),
 };
 
+// Create a mock result that can be controlled per test
+let mockSupabaseResult = { data: mockSession, error: null };
+
 // Mock Supabase client
 vi.mock('../utils/supabase', () => ({
   getSupabaseClient: vi.fn(() => ({
     from: vi.fn((table: string) => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          single: vi.fn(() => ({
-            data: mockSession,
-            error: null,
-          })),
+          single: vi.fn(() => mockSupabaseResult),
         })),
       })),
       update: vi.fn(() => ({
@@ -59,6 +59,9 @@ describe('getSessionConfig', () => {
   let mockContext: any;
 
   beforeEach(() => {
+    // Reset mock result to default
+    mockSupabaseResult = { data: mockSession, error: null };
+
     mockContext = {
       req: {
         param: vi.fn(() => mockSessionId),
@@ -88,22 +91,10 @@ describe('getSessionConfig', () => {
   });
 
   it('should return session config for in_progress session', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: { ...mockSession, status: 'in_progress' },
-              error: null,
-            })),
-          })),
-        })),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: mockSession, error: null })),
-        })),
-      })),
-    } as any));
+    mockSupabaseResult = {
+      data: { ...mockSession, status: 'in_progress' },
+      error: null,
+    };
 
     const response = await getSessionConfig(mockContext);
     expect(response.status).toBe(200);
@@ -120,19 +111,10 @@ describe('getSessionConfig', () => {
   });
 
   it('should return 404 if session not found', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: null,
-              error: { message: 'Not found' },
-            })),
-          })),
-        })),
-      })),
-    } as any));
+    mockSupabaseResult = {
+      data: null,
+      error: { message: 'Not found' },
+    };
 
     const response = await getSessionConfig(mockContext);
     const data = await response.json();
@@ -142,19 +124,10 @@ describe('getSessionConfig', () => {
   });
 
   it('should return 400 if session is not ready or in_progress', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: { ...mockSession, status: 'completed' },
-              error: null,
-            })),
-          })),
-        })),
-      })),
-    } as any));
+    mockSupabaseResult = {
+      data: { ...mockSession, status: 'completed' },
+      error: null,
+    };
 
     const response = await getSessionConfig(mockContext);
     const data = await response.json();
@@ -164,26 +137,14 @@ describe('getSessionConfig', () => {
   });
 
   it('should use default values when optional fields are missing', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: {
-                ...mockSession,
-                company_name: null,
-                parsed_resume: { raw_text: 'Resume text' },
-              },
-              error: null,
-            })),
-          })),
-        })),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: mockSession, error: null })),
-        })),
-      })),
-    } as any));
+    mockSupabaseResult = {
+      data: {
+        ...mockSession,
+        company_name: null,
+        parsed_resume: { raw_text: 'Resume text' },
+      },
+      error: null,
+    };
 
     const response = await getSessionConfig(mockContext);
     const data = await response.json();

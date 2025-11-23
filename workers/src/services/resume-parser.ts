@@ -18,23 +18,23 @@ import { z } from 'zod';
 const ExperienceSchema = z.object({
   company: z.string().describe('Company name'),
   title: z.string().describe('Job title'),
-  duration: z.string().optional().describe('Duration of employment'),
-  description: z.string().optional().describe('Job description or responsibilities'),
+  duration: z.string().nullable().default(null).describe('Duration of employment'),
+  description: z.string().nullable().default(null).describe('Job description or responsibilities'),
 });
 
 const EducationSchema = z.object({
   institution: z.string().describe('Educational institution name'),
-  degree: z.string().optional().describe('Degree or qualification'),
-  year: z.string().optional().describe('Graduation year or time period'),
+  degree: z.string().nullable().default(null).describe('Degree or qualification'),
+  year: z.string().nullable().default(null).describe('Graduation year or time period'),
 });
 
 const ParsedResumeSchema = z.object({
-  candidate_name: z.string().optional().describe('Full name of the candidate'),
-  email: z.string().optional().describe('Email address'),
-  phone: z.string().optional().describe('Phone number'),
-  skills: z.array(z.string()).optional().describe('List of technical and soft skills'),
-  experience: z.array(ExperienceSchema).optional().describe('Work experience history'),
-  education: z.array(EducationSchema).optional().describe('Educational background'),
+  candidate_name: z.string().nullable().default(null).describe('Full name of the candidate'),
+  email: z.string().nullable().default(null).describe('Email address'),
+  phone: z.string().nullable().default(null).describe('Phone number'),
+  skills: z.array(z.string()).default([]).describe('List of technical and soft skills'),
+  experience: z.array(ExperienceSchema).default([]).describe('Work experience history'),
+  education: z.array(EducationSchema).default([]).describe('Educational background'),
 });
 
 /**

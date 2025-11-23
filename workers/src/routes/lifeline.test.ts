@@ -29,7 +29,7 @@ describe('handleLifeline', () => {
     };
   });
 
-  it('should return not implemented error (current behavior)', async () => {
+  it('should generate lifeline advice successfully', async () => {
     mockContext.req.json = vi.fn(() => Promise.resolve({
       transcript_history: [
         { role: 'agent', text: 'Tell me about your experience with React.' },
@@ -40,8 +40,9 @@ describe('handleLifeline', () => {
     const response = await handleLifeline(mockContext);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('Lifeline not yet implemented');
+    expect(response.status).toBe(200);
+    expect(data.advice).toBe('Focus on specific technical details rather than vague statements.');
+    expect(data.suggested_opening).toBe('Let me walk you through the specific architecture decisions...');
   });
 
   it('should handle errors gracefully', async () => {
@@ -51,7 +52,6 @@ describe('handleLifeline', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    // Current implementation returns "Lifeline not yet implemented" for all errors
-    expect(data.error).toBe('Lifeline not yet implemented');
+    expect(data.error).toContain('Failed to generate lifeline advice');
   });
 });

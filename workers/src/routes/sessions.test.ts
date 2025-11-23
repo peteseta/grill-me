@@ -66,37 +66,38 @@ vi.mock('../services/attack-plan-generator', () => ({
   generateAttackPlan: vi.fn(() => Promise.resolve(mockAttackPlan)),
 }));
 
+// Create controllable mocks for Supabase operations
+let mockInsertResult = { data: mockSession, error: null };
+let mockSelectResult = {
+  data: [
+    {
+      id: mockSessionId,
+      created_at: mockSession.created_at,
+      role_title: mockSession.role_title,
+      company_name: mockSession.company_name,
+      status: mockSession.status,
+      interview_analyses: [
+        {
+          score_overall: 8,
+          score_bullshit: 30,
+        },
+      ],
+    },
+  ],
+  error: null,
+};
+
 vi.mock('../utils/supabase', () => ({
   getSupabaseClient: vi.fn(() => ({
     from: vi.fn((table: string) => ({
       insert: vi.fn(() => ({
         select: vi.fn(() => ({
-          single: vi.fn(() => ({
-            data: mockSession,
-            error: null,
-          })),
+          single: vi.fn(() => mockInsertResult),
         })),
       })),
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          order: vi.fn(() => ({
-            data: [
-              {
-                id: mockSessionId,
-                created_at: mockSession.created_at,
-                role_title: mockSession.role_title,
-                company_name: mockSession.company_name,
-                status: mockSession.status,
-                interview_analyses: [
-                  {
-                    score_overall: 8,
-                    score_bullshit: 30,
-                  },
-                ],
-              },
-            ],
-            error: null,
-          })),
+          order: vi.fn(() => mockSelectResult),
         })),
       })),
     })),
@@ -108,6 +109,27 @@ describe('createSession', () => {
   let mockFormData: FormData;
 
   beforeEach(() => {
+    // Reset mock results to default
+    mockInsertResult = { data: mockSession, error: null };
+    mockSelectResult = {
+      data: [
+        {
+          id: mockSessionId,
+          created_at: mockSession.created_at,
+          role_title: mockSession.role_title,
+          company_name: mockSession.company_name,
+          status: mockSession.status,
+          interview_analyses: [
+            {
+              score_overall: 8,
+              score_bullshit: 30,
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
+
     // Create a mock File
     const mockFile = new File(['resume content'], 'resume.pdf', { type: 'application/pdf' });
 
@@ -201,19 +223,11 @@ describe('createSession', () => {
   });
 
   it('should handle database insertion errors', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        insert: vi.fn(() => ({
-          select: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: null,
-              error: { message: 'Database error' },
-            })),
-          })),
-        })),
-      })),
-    } as any));
+    // Set mock to return error
+    mockInsertResult = {
+      data: null,
+      error: { message: 'Database error' },
+    };
 
     const response = await createSession(mockContext);
     const data = await response.json();
@@ -238,6 +252,26 @@ describe('listSessions', () => {
   let mockContext: any;
 
   beforeEach(() => {
+    // Reset mock results to default
+    mockSelectResult = {
+      data: [
+        {
+          id: mockSessionId,
+          created_at: mockSession.created_at,
+          role_title: mockSession.role_title,
+          company_name: mockSession.company_name,
+          status: mockSession.status,
+          interview_analyses: [
+            {
+              score_overall: 8,
+              score_bullshit: 30,
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
+
     mockContext = {
       req: {
         query: vi.fn(() => mockUserId),
@@ -279,28 +313,20 @@ describe('listSessions', () => {
   });
 
   it('should handle sessions without analyses', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => ({
-              data: [
-                {
-                  id: mockSessionId,
-                  created_at: mockSession.created_at,
-                  role_title: mockSession.role_title,
-                  company_name: mockSession.company_name,
-                  status: mockSession.status,
-                  interview_analyses: [],
-                },
-              ],
-              error: null,
-            })),
-          })),
-        })),
-      })),
-    } as any));
+    // Set mock to return session with empty analyses
+    mockSelectResult = {
+      data: [
+        {
+          id: mockSessionId,
+          created_at: mockSession.created_at,
+          role_title: mockSession.role_title,
+          company_name: mockSession.company_name,
+          status: mockSession.status,
+          interview_analyses: [],
+        },
+      ],
+      error: null,
+    };
 
     const response = await listSessions(mockContext);
     const data = await response.json();
@@ -310,19 +336,11 @@ describe('listSessions', () => {
   });
 
   it('should handle database errors', async () => {
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => ({
-              data: null,
-              error: { message: 'Database error' },
-            })),
-          })),
-        })),
-      })),
-    } as any));
+    // Set mock to return error
+    mockSelectResult = {
+      data: null,
+      error: { message: 'Database error' },
+    };
 
     const response = await listSessions(mockContext);
     const data = await response.json();

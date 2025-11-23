@@ -37,12 +37,16 @@ const mockElevenLabsTranscript = {
 // Mock global fetch
 global.fetch = vi.fn();
 
+// Create controllable mocks for Supabase
+let mockUploadResult = { error: null };
+let mockUploadFn = vi.fn(() => Promise.resolve(mockUploadResult));
+
 // Mock Supabase
 vi.mock('../utils/supabase', () => ({
   getSupabaseClient: vi.fn(() => ({
     storage: {
       from: vi.fn(() => ({
-        upload: vi.fn(() => Promise.resolve({ error: null })),
+        upload: mockUploadFn,
         getPublicUrl: vi.fn(() => ({
           data: { publicUrl: 'https://storage.example.com/audio/conv-123.mp3' },
         })),
@@ -143,6 +147,9 @@ describe('fetchAudioUrl', () => {
       ELEVENLABS_AGENT_ID: 'agent-123',
     };
 
+    // Reset mock results to default success state
+    mockUploadResult = { error: null };
+    mockUploadFn.mockClear();
     vi.clearAllMocks();
   });
 
@@ -193,15 +200,8 @@ describe('fetchAudioUrl', () => {
       blob: async () => mockBlob,
     } as Response);
 
-    // Mock Supabase upload error - reimport to get fresh mock
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      storage: {
-        from: vi.fn(() => ({
-          upload: vi.fn(() => Promise.resolve({ error: { message: 'Upload failed' } })),
-        })),
-      },
-    } as any));
+    // Set mock to return upload error
+    mockUploadResult = { error: { message: 'Upload failed' } };
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const result = await fetchAudioUrl(mockConversationId, mockEnv);
@@ -233,22 +233,9 @@ describe('fetchAudioUrl', () => {
       blob: async () => mockBlob,
     } as Response);
 
-    const mockUpload = vi.fn(() => Promise.resolve({ error: null }));
-    const supabaseModule = await vi.importMock<typeof import('../utils/supabase')>('../utils/supabase');
-    supabaseModule.getSupabaseClient = vi.fn(() => ({
-      storage: {
-        from: vi.fn(() => ({
-          upload: mockUpload,
-          getPublicUrl: vi.fn(() => ({
-            data: { publicUrl: 'https://storage.example.com/audio/conv-123.mp3' },
-          })),
-        })),
-      },
-    } as any));
-
     await fetchAudioUrl(mockConversationId, mockEnv);
 
-    expect(mockUpload).toHaveBeenCalledWith(
+    expect(mockUploadFn).toHaveBeenCalledWith(
       `conversations/${mockConversationId}.mp3`,
       mockBlob,
       {
