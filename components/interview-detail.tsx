@@ -295,6 +295,7 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
               {sessionData?.audio_url && (
                 <>
               {/* Waveform Visualization */}
+              {/* todo: make this actually reflect the waveform of the audio somehow, or just don't change it randomly - it's distracting.*/}
               <div className="relative h-36 bg-[#F5F1E8] rounded-2xl mb-8 flex items-center justify-center px-4 border-2 border-[#2C2416]/5">
                 <div className="flex items-center gap-1 h-full w-full">
                   {[...Array(60)].map((_, i) => {
