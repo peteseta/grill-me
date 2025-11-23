@@ -7,6 +7,7 @@
 import { Context } from 'hono';
 import { Env } from '../types/env';
 import { AnalyzeSessionRequest, AnalyzeSessionResponse } from '../types/api';
+import { InterviewSession, InterviewAnalysis } from '../types/database';
 import { getSupabaseClient } from '../utils/supabase';
 import { fetchTranscript, fetchAudioUrl } from '../services/elevenlabs';
 import { analyzeInterview } from '../services/interview-analyzer';
@@ -44,7 +45,7 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
       .from('interview_sessions')
       .select('*')
       .eq('id', sessionId)
-      .single();
+      .single<InterviewSession>();
 
     if (sessionError || !session) {
       return notFound('Session not found');
@@ -65,7 +66,7 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
     }, c.env);
 
     // Store analysis in database
-    const { data: analysisData, error: analysisError } = await supabase
+    const { data: analysisData, error: analysisError } = await (supabase as any)
       .from('interview_analyses')
       .insert({
         session_id: sessionId,
@@ -83,7 +84,7 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
     if (analysisError) throw analysisError;
 
     // Update session status to 'completed'
-    await supabase
+    await (supabase as any)
       .from('interview_sessions')
       .update({
         status: 'completed',
@@ -134,7 +135,7 @@ export async function getSessionResults(c: Context<{ Bindings: Env }>): Promise<
       .from('interview_analyses')
       .select('*')
       .eq('session_id', sessionId)
-      .single();
+      .single<InterviewAnalysis>();
 
     if (error || !analysis) {
       return notFound('Analysis not found for this session');
