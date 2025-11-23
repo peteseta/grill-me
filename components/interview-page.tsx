@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, X, Pause, AlertCircle, Loader2 } from 'lucide-react';
+import { Mic, MicOff, X, Pause, Play, AlertCircle, Loader2, PhoneOff } from 'lucide-react';
 import { Conversation } from '@elevenlabs/client';
 import { apiClient } from '../lib/api-client';
 
@@ -10,14 +10,72 @@ interface InterviewPageProps {
   onExit: () => void;
 }
 
+interface InterviewerProfile {
+  name: string;
+  position: string;
+  initials: string;
+  color: string;
+}
+
+// Generate interviewer profile based on role
+function generateInterviewerProfile(roleTitle: string): InterviewerProfile {
+  const profiles: Record<string, InterviewerProfile> = {
+    'software engineer': {
+      name: 'Alex Chen',
+      position: 'Senior Engineering Manager at Meta',
+      initials: 'AC',
+      color: '#C14B30'
+    },
+    'product manager': {
+      name: 'Sarah Martinez',
+      position: 'Director of Product at Google',
+      initials: 'SM',
+      color: '#5A7C6F'
+    },
+    'data scientist': {
+      name: 'Jordan Williams',
+      position: 'Lead Data Scientist at Amazon',
+      initials: 'JW',
+      color: '#D4845C'
+    },
+    'designer': {
+      name: 'Morgan Taylor',
+      position: 'Design Director at Apple',
+      initials: 'MT',
+      color: '#C14B30'
+    },
+    'cybersecurity': {
+      name: 'Cameron Rodriguez',
+      position: 'Director of Cybersecurity at Microsoft',
+      initials: 'CR',
+      color: '#5A7C6F'
+    },
+    'default': {
+      name: 'Taylor Johnson',
+      position: 'Senior Hiring Manager',
+      initials: 'TJ',
+      color: '#C14B30'
+    }
+  };
+
+  const roleLower = roleTitle.toLowerCase();
+  for (const [key, profile] of Object.entries(profiles)) {
+    if (roleLower.includes(key)) {
+      return profile;
+    }
+  }
+
+  return profiles.default;
+}
+
 export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   // Demo mode - skip API calls if sessionId is 'demo'
   const isDemoMode = sessionId === 'demo';
-  
+
   const [interviewState, setInterviewState] = useState<InterviewState>(isDemoMode ? 'ready' : 'loading');
-  const [isRecording, setIsRecording] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [questionStartTime, setQuestionStartTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(isDemoMode ? 'demo-conversation' : null);
   const [agentConfig, setAgentConfig] = useState<any>(isDemoMode ? {
@@ -33,6 +91,11 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const conversationRef = useRef<Conversation | null>(null);
   const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
   const abortAnalysisRef = useRef<boolean>(false);
+
+  // Get interviewer profile based on role
+  const interviewerProfile = agentConfig
+    ? generateInterviewerProfile(agentConfig.dynamic_variables.ROLE_TITLE)
+    : generateInterviewerProfile('default');
 
   useEffect(() => {
     // Skip initialization in demo mode
@@ -92,7 +155,6 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
               setInterviewState('speaking');
             } else if (mode === 'listening') {
               setInterviewState('listening');
-              setIsRecording(true);
             }
           },
           onMessage: ({ message, source }) => {
@@ -100,7 +162,6 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
             // Add message to chat history
             setChatHistory(prev => [...prev, { source: source as 'agent' | 'user', message }]);
             if (source === 'user') {
-              setIsRecording(false);
               setInterviewState('processing');
             }
           }
@@ -163,7 +224,6 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     if (interviewState === 'listening' || interviewState === 'speaking') {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
-        setQuestionStartTime((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -188,9 +248,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
 
   const startInterview = () => {
     // The conversation is already started during initialization
-    // Just need to reset the timers and update state
+    // Just need to reset the timer and update state
     setElapsedTime(0);
-    setQuestionStartTime(0);
     setInterviewState('speaking');
   };
 
@@ -280,32 +339,25 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     }
   };
 
-  const toggleRecording = () => {
-    // Demo mode - simulate recording toggle
+  const toggleMute = () => {
     if (isDemoMode) {
-      if (isRecording) {
-        setIsRecording(false);
-        setInterviewState('processing');
-      } else {
-        setIsRecording(true);
-        setInterviewState('listening');
-      }
+      setIsMuted(!isMuted);
       return;
     }
 
     if (!conversationRef.current) return;
+    conversationRef.current.setMicMuted(!isMuted);
+    setIsMuted(!isMuted);
+  };
 
-    if (isRecording) {
-      // Mute the microphone
-      conversationRef.current.setMicMuted(true);
-      setIsRecording(false);
-      setInterviewState('processing');
-    } else {
-      // Unmute the microphone
-      conversationRef.current.setMicMuted(false);
-      setIsRecording(true);
-      setInterviewState('listening');
+  const togglePause = () => {
+    if (isDemoMode) {
+      setIsPaused(!isPaused);
+      return;
     }
+
+    // For now, just update state - full pause implementation would need ElevenLabs support
+    setIsPaused(!isPaused);
   };
 
   const handleExit = async () => {
@@ -468,46 +520,40 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
         // Interview Active State - Two Column Layout
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid lg:grid-cols-2 gap-8">
-            {/* Left Column - AI Voice Blob & Recording Controls */}
+            {/* Left Column - Avatar Card & Controls */}
             <div className="space-y-6">
-              {/* AI Voice Blob */}
-              <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-12 flex flex-col items-center justify-center min-h-[400px]">
-                <div className="relative mb-8">
-                  {/* Animated Voice Blob */}
-                  <div className="relative w-64 h-64">
-                    {/* Outer glow rings */}
-                    <div className={`absolute inset-0 rounded-full transition-all duration-1000 ${
-                      interviewState === 'speaking'
-                        ? 'bg-[#C14B30]/20 animate-ping'
-                        : interviewState === 'listening'
-                        ? 'bg-[#5A7C6F]/20 animate-pulse'
-                        : 'bg-[#D4845C]/20 animate-pulse'
-                    }`} style={{ animationDuration: '2s' }} />
-
-                    {/* Middle ring */}
-                    <div className={`absolute inset-8 rounded-full transition-all duration-700 ${
-                      interviewState === 'speaking'
-                        ? 'bg-[#C14B30]/30'
-                        : interviewState === 'listening'
-                        ? 'bg-[#5A7C6F]/30'
-                        : 'bg-[#D4845C]/30'
-                    }`} style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
-
-                    {/* Core blob */}
-                    <div className={`absolute inset-16 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl ${
-                      interviewState === 'speaking'
-                        ? 'bg-gradient-to-br from-[#C14B30] to-[#A03D24]'
-                        : interviewState === 'listening'
-                        ? 'bg-gradient-to-br from-[#5A7C6F] to-[#4A6B5E]'
-                        : 'bg-gradient-to-br from-[#D4845C] to-[#C16F47]'
-                    }`}>
-                      <Mic className="w-16 h-16 text-[#FDFCFA]" strokeWidth={2} />
-                    </div>
+              {/* Avatar Card */}
+              <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-12 flex flex-col items-center justify-center min-h-[500px]">
+                {/* Timer */}
+                <div className="self-start mb-8">
+                  <div className="inline-block px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl text-lg font-medium">
+                    {formatTime(elapsedTime)}
                   </div>
                 </div>
 
-                {/* Status Indicator */}
-                <div className="text-center mb-8">
+                {/* Centered Avatar and Info */}
+                <div className="text-center flex-grow flex flex-col items-center justify-center">
+                  {/* Avatar Circle */}
+                  <div
+                    className="w-48 h-48 rounded-full mb-6 flex items-center justify-center shadow-2xl"
+                    style={{ backgroundColor: interviewerProfile.color }}
+                  >
+                    <span className="text-[#FDFCFA] text-6xl font-bold" style={{ fontFamily: 'var(--font-serif)' }}>
+                      {interviewerProfile.initials}
+                    </span>
+                  </div>
+
+                  {/* Name */}
+                  <h2 className="text-[#2C2416] mb-2 text-2xl" style={{ fontFamily: 'var(--font-serif)' }}>
+                    {interviewerProfile.name}
+                  </h2>
+
+                  {/* Position */}
+                  <p className="text-[#6B5D4F] text-lg mb-6">
+                    {interviewerProfile.position}
+                  </p>
+
+                  {/* Status Indicator */}
                   <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 ${
                     interviewState === 'speaking'
                       ? 'bg-[#C14B30]/10 border-[#C14B30]/30 text-[#C14B30]'
@@ -523,68 +569,63 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
                     </span>
                   </div>
                 </div>
-
-                {/* Recording Button */}
-                <button
-                  onClick={toggleRecording}
-                  disabled={interviewState === 'speaking' || interviewState === 'processing'}
-                  className={`p-8 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:scale-105 ${
-                    isRecording
-                      ? 'bg-[#C14B30] hover:bg-[#A03D24]'
-                      : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
-                  }`}
-                >
-                  {isRecording ? (
-                    <Pause className="w-10 h-10 text-[#FDFCFA]" strokeWidth={2.5} />
-                  ) : (
-                    <Mic className="w-10 h-10 text-[#FDFCFA]" strokeWidth={2.5} />
-                  )}
-                </button>
-
-                <p className="text-[#6B5D4F] mt-4 italic text-center">
-                  {isRecording ? 'Click to pause recording' : 'Click to continue recording'}
-                </p>
-
-                {/* End Interview Button */}
-                <button
-                  onClick={endInterviewAndAnalyze}
-                  disabled={isAnalyzing}
-                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAnalyzing ? 'Processing...' : 'End Interview & Get Feedback'}
-                </button>
               </div>
 
-              {/* Voice Memos Visualization */}
-              <div className="bg-[#FDFCFA] rounded-2xl shadow-lg border-2 border-[#2C2416]/10 p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Recording</h3>
-                  <span className="text-[#6B5D4F]">{formatTime(questionStartTime)}</span>
-                </div>
-
-                {/* Waveform Visualization */}
-                <div className="flex items-center justify-center gap-1 h-24 bg-[#F5F1E8] rounded-xl px-4">
-                  {[...Array(50)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-1 rounded-full transition-all ${
-                        isRecording ? 'bg-[#5A7C6F]' : 'bg-[#E8E3D6]'
+              {/* Bottom Control Bar - Sticky */}
+              <div className="sticky bottom-4 bg-[#2C2416] rounded-2xl shadow-2xl border-2 border-[#2C2416]/20">
+                <div className="px-8 py-6">
+                  <div className="flex items-center justify-center gap-6">
+                    {/* Mute Button */}
+                    <button
+                      onClick={toggleMute}
+                      className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
+                        isMuted
+                          ? 'bg-[#C14B30] hover:bg-[#A03D24]'
+                          : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
                       }`}
-                      style={{
-                        height: isRecording
-                          ? `${Math.random() * 70 + 20}%`
-                          : '20%',
-                        animation: isRecording ? `pulse ${Math.random() * 0.5 + 0.5}s infinite` : 'none',
-                      }}
-                    />
-                  ))}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? (
+                        <MicOff className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      ) : (
+                        <Mic className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      )}
+                    </button>
+
+                    {/* Pause Button */}
+                    <button
+                      onClick={togglePause}
+                      className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
+                        isPaused
+                          ? 'bg-[#C14B30] hover:bg-[#A03D24]'
+                          : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
+                      }`}
+                      title={isPaused ? 'Resume' : 'Pause'}
+                    >
+                      {isPaused ? (
+                        <Play className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      ) : (
+                        <Pause className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      )}
+                    </button>
+
+                    {/* End Interview Button */}
+                    <button
+                      onClick={endInterviewAndAnalyze}
+                      disabled={isAnalyzing}
+                      className="flex items-center gap-3 px-8 py-5 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <PhoneOff className="w-6 h-6" strokeWidth={2.5} />
+                      <span className="font-medium">End Interview</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Right Column - Conversation History */}
             <div className="space-y-6">
-              {/* Current Question Card */}
+              {/* Conversation Card */}
               <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10 min-h-[600px] flex flex-col">
                 <div className="mb-6">
                   <h3 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Conversation</h3>
