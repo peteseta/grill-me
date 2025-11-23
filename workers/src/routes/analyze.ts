@@ -43,9 +43,14 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
     // Fetch transcript from ElevenLabs
     const transcript = await fetchTranscript(body.conversation_id, c.env);
 
-    // Fetch audio URL from ElevenLabs (can just fetch from the supabase???)
+    // Fetch audio URL from ElevenLabs
     const audioUrl = await saveAndFetchAudioUrl(body.conversation_id, c.env);
     console.log("audioUrl: ",  audioUrl);
+
+    // If audio is not ready yet, return error to trigger retry
+    if (!audioUrl) {
+      return badRequest('Audio not ready yet - ElevenLabs is still processing');
+    }
 
     // Analyze interview
     const analysis = await analyzeInterview({
@@ -55,10 +60,10 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
       interviewType: session.interview_type,
     }, c.env);
 
-    // Store analysis in database
+    // Store analysis in database (upsert to handle retries where audio may not be ready on first attempt)
     const { data: analysisData, error: analysisError } = await (supabase as any)
       .from('interview_analyses')
-      .insert({
+      .upsert({
         session_id: sessionId,
         full_transcript_json: transcript,
         audio_url: audioUrl,
@@ -67,6 +72,8 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
         score_bullshit: analysis.score_bullshit,
         score_overall: analysis.score_overall,
         score_technical: analysis.score_technical,
+      }, {
+        onConflict: 'session_id'
       })
       .select()
       .single();

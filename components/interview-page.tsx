@@ -19,7 +19,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentConfig, setAgentConfig] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const conversationRef = useRef<Conversation | null>(null);
+  const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
+  const abortAnalysisRef = useRef<boolean>(false);
 
   // Mock questions for now - these will come from ElevenLabs
   const mockQuestions = [
@@ -31,19 +34,124 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   ];
 
   useEffect(() => {
-    loadSessionConfig();
+    let cancelled = false;
 
-    // Cleanup on unmount
+    const initializeInterview = async () => {
+      // Prevent duplicate initialization - check for active or pending connections
+      if (conversationRef.current || pendingConversationRef.current) {
+        console.log('Conversation already exists or is being created, skipping initialization');
+        return;
+      }
+
+      try {
+        setInterviewState('loading');
+
+        // Fetch session config
+        const config = await apiClient.getSessionConfig(sessionId);
+        if (cancelled) {
+          console.log('Component unmounted during config fetch, aborting initialization');
+          return;
+        }
+
+        setAgentConfig(config);
+
+        // Start the conversation and track it as pending
+        const conversationPromise = Conversation.startSession({
+          agentId: config.agent_id,
+          connectionType: 'websocket',
+          dynamicVariables: {
+            ROLE_TITLE: config.dynamic_variables.ROLE_TITLE,
+            CANDIDATE_NAME: config.dynamic_variables.CANDIDATE_NAME,
+            COMPANY_NAME: config.dynamic_variables.COMPANY_NAME,
+            INTERVIEW_TYPE: config.dynamic_variables.INTERVIEW_TYPE,
+            ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2),
+            RESUME_TEXT: config.dynamic_variables.RESUME_TEXT,
+          },
+          onConnect: ({ conversationId: convId }) => {
+            console.log('ElevenLabs conversation connected:', convId);
+            setConversationId(convId);
+          },
+          onDisconnect: (details) => {
+            console.log('ElevenLabs conversation disconnected:', details);
+          },
+          onError: (message, context) => {
+            console.error('ElevenLabs error:', message, context);
+            setError('Failed to connect to interview service');
+            setInterviewState('error');
+          },
+          onModeChange: ({ mode }) => {
+            console.log('Mode changed to:', mode);
+            if (mode === 'speaking') {
+              setInterviewState('speaking');
+            } else if (mode === 'listening') {
+              setInterviewState('listening');
+              setIsRecording(true);
+            }
+          },
+          onMessage: ({ message, source }) => {
+            console.log(`Message from ${source}:`, message);
+            if (source === 'user') {
+              setIsRecording(false);
+              setInterviewState('processing');
+            }
+          }
+        });
+
+        pendingConversationRef.current = conversationPromise;
+
+        // Wait for connection to complete
+        const conversation = await conversationPromise;
+        pendingConversationRef.current = null;
+
+        // Check if component was unmounted while connecting
+        if (cancelled) {
+          console.log('Component unmounted during connection, cleaning up conversation');
+          await conversation.endSession().catch(console.error);
+          return;
+        }
+
+        // Success - store the conversation and mark as ready
+        conversationRef.current = conversation;
+        setInterviewState('ready');
+      } catch (err) {
+        pendingConversationRef.current = null;
+        if (!cancelled) {
+          console.error('Failed to load session config:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
+          setInterviewState('error');
+        }
+      }
+    };
+
+    initializeInterview();
+
+    // Cleanup function - handles both pending and active connections
     return () => {
+      cancelled = true;
+      abortAnalysisRef.current = true;
+
+      // Clean up pending connection if it completes after unmount
+      if (pendingConversationRef.current) {
+        pendingConversationRef.current.then(conversation => {
+          console.log('Cleaning up pending conversation after unmount');
+          conversation.endSession().catch(console.error);
+        }).catch(console.error);
+        pendingConversationRef.current = null;
+      }
+
+      // Clean up active connection
       if (conversationRef.current) {
+        console.log('Cleaning up active conversation');
         conversationRef.current.endSession().catch(console.error);
+        conversationRef.current = null;
       }
     };
   }, [sessionId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (interviewState !== 'ready' && interviewState !== 'loading' && interviewState !== 'error') {
+    // Only run timer during active interview states (not during processing/analysis)
+    if (interviewState === 'listening' || interviewState === 'speaking') {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
         setQuestionStartTime((prev) => prev + 1);
@@ -52,67 +160,25 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     return () => clearInterval(interval);
   }, [interviewState]);
 
-  const loadSessionConfig = async () => {
-    try {
-      setInterviewState('loading');
-      const config = await apiClient.getSessionConfig(sessionId);
-      setAgentConfig(config);
-
-      // Initialize ElevenLabs Conversation with dynamic variables
-      // dynamicVariables is a top-level parameter for personalizing the agent
-        // fixme: conversation is doubled. there are two connections for some reason.
-      const conversation = await Conversation.startSession({
-        agentId: config.agent_id,
-        connectionType: 'websocket',
-        dynamicVariables: {
-          ROLE_TITLE: config.dynamic_variables.ROLE_TITLE,
-          CANDIDATE_NAME: config.dynamic_variables.CANDIDATE_NAME,
-          COMPANY_NAME: config.dynamic_variables.COMPANY_NAME,
-          INTERVIEW_TYPE: config.dynamic_variables.INTERVIEW_TYPE,
-          ATTACK_PLAN_JSON: JSON.stringify(config.dynamic_variables.ATTACK_PLAN_JSON, null, 2),
-          RESUME_TEXT: config.dynamic_variables.RESUME_TEXT,
-        },
-        onConnect: ({ conversationId: convId }) => {
-          console.log('ElevenLabs conversation connected:', convId);
-          setConversationId(convId);
-        },
-        onDisconnect: (details) => {
-          console.log('ElevenLabs conversation disconnected:', details);
-        },
-        onError: (message, context) => {
-          console.error('ElevenLabs error:', message, context);
-          setError('Failed to connect to interview service');
-          setInterviewState('error');
-        },
-        onModeChange: ({ mode }) => {
-          console.log('Mode changed to:', mode);
-          if (mode === 'speaking') {
-            setInterviewState('speaking');
-          } else if (mode === 'listening') {
-            setInterviewState('listening');
-            setIsRecording(true);
-          }
-        },
-        onMessage: ({ message, source }) => {
-          console.log(`Message from ${source}:`, message);
-          if (source === 'user') {
-            setIsRecording(false);
-            setInterviewState('processing');
-          }
-        }
-      });
-
-      conversationRef.current = conversation;
-      setInterviewState('ready');
-    } catch (err) {
-      console.error('Failed to load session config:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load interview configuration');
-      setInterviewState('error');
+  const retryInitialization = () => {
+    // Clear error state and reset to trigger re-initialization
+    setError(null);
+    setInterviewState('loading');
+    // The useEffect will handle re-initialization when sessionId changes
+    // For same sessionId, we need to manually clean up and re-trigger
+    if (conversationRef.current) {
+      conversationRef.current.endSession().catch(console.error);
+      conversationRef.current = null;
     }
+    if (pendingConversationRef.current) {
+      pendingConversationRef.current = null;
+    }
+    // Force a re-render by updating a state that triggers the effect
+    window.location.reload();
   };
 
   const startInterview = () => {
-    // The conversation is already started in loadSessionConfig
+    // The conversation is already started during initialization
     // Just need to reset the timers and update state
     setElapsedTime(0);
     setQuestionStartTime(0);
@@ -120,30 +186,81 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   };
 
   const endInterviewAndAnalyze = async () => {
+    // Prevent double-click
+    if (isAnalyzing) {
+      console.log('Analysis already in progress, ignoring duplicate click');
+      return;
+    }
+
     if (!conversationRef.current || !conversationId) {
       console.error('No active conversation to analyze');
       return;
     }
 
-    // fixme: immediately after clicking end, it takes a while for the audio to be uploaded and for us to get the transcript etc from ElevenLabs. so at first the /analyze endpoint returns a 204. After a while the audioUrl gets pushed to the database, and then the endpoint is called again this time returning a 200. We need to end the connection to the agent, wait for the database entry to be created, and THEN post the /analyze endpoint.
-
     try {
+      setIsAnalyzing(true);
+      abortAnalysisRef.current = false;
+
       // End the ElevenLabs conversation
       await conversationRef.current.endSession();
+      conversationRef.current = null;
 
       setInterviewState('processing');
 
-      // Trigger backend analysis
-      await apiClient.analyzeSession(sessionId, {
-        conversation_id: conversationId
-      });
+      // Wait for ElevenLabs to process and make the audio/transcript available
+      // Poll with exponential backoff: 2s, 4s, 6s, 8s, 10s (max 30s total)
+      const maxRetries = 5;
+      const baseDelay = 2000; // 2 seconds
+      let lastError: Error | null = null;
 
-      alert('Interview completed! Check your history for detailed feedback.');
-      onExit();
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // Check if component unmounted or user navigated away
+        if (abortAnalysisRef.current) {
+          console.log('Analysis aborted - component unmounted');
+          return;
+        }
+
+        try {
+          // Wait before attempting (exponentially increasing delay)
+          const delay = baseDelay * (attempt + 1);
+          console.log(`Waiting ${delay}ms before analysis attempt ${attempt + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          // Check again after delay
+          if (abortAnalysisRef.current) {
+            console.log('Analysis aborted during delay - component unmounted');
+            return;
+          }
+
+          // Trigger backend analysis
+          await apiClient.analyzeSession(sessionId, {
+            conversation_id: conversationId
+          });
+
+          // Success! Exit the retry loop and redirect to history
+          if (!abortAnalysisRef.current) {
+            onExit();
+          }
+          return;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error('Failed to analyze interview');
+          console.warn(`Analysis attempt ${attempt + 1}/${maxRetries} failed:`, err);
+
+          // If this was the last attempt, throw the error
+          if (attempt === maxRetries - 1) {
+            throw lastError;
+          }
+          // Otherwise, continue to next retry
+        }
+      }
     } catch (err) {
-      console.error('Failed to analyze interview:', err);
-      setError(err instanceof Error ? err.message : 'Failed to analyze interview');
-      setInterviewState('error');
+      if (!abortAnalysisRef.current) {
+        console.error('Failed to analyze interview:', err);
+        setError(err instanceof Error ? err.message : 'Failed to analyze interview. The audio may still be processing - please check your history in a moment.');
+        setInterviewState('error');
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -223,7 +340,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
             </h2>
             <p className="text-[#6B5D4F] mb-6">{error}</p>
             <button
-              onClick={loadSessionConfig}
+              onClick={retryInitialization}
               className="px-6 py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all"
             >
               Try Again
@@ -235,7 +352,25 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F1E8]">
+    <div className="min-h-screen bg-[#F5F1E8] relative">
+      {/* Full-page overlay during analysis */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-[#FDFCFA] rounded-3xl shadow-2xl border-2 border-[#2C2416]/10 p-12 text-center max-w-md">
+            <Loader2 className="w-20 h-20 text-[#C14B30] animate-spin mx-auto mb-6" />
+            <h2 className="text-[#2C2416] mb-3" style={{ fontFamily: 'var(--font-serif)' }}>
+              Processing Your Interview
+            </h2>
+            <p className="text-[#6B5D4F] mb-2">
+              Analyzing your responses and generating feedback...
+            </p>
+            <p className="text-[#6B5D4F] text-sm italic">
+              This may take a moment
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header with Exit Button */}
       <header className="bg-[#FDFCFA] border-b border-[#2C2416]/10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -378,9 +513,10 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
                 {/* End Interview Button */}
                 <button
                   onClick={endInterviewAndAnalyze}
-                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg"
+                  disabled={isAnalyzing}
+                  className="mt-6 px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl hover:bg-[#3C3426] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  End Interview & Get Feedback
+                  {isAnalyzing ? 'Processing...' : 'End Interview & Get Feedback'}
                 </button>
               </div>
 
