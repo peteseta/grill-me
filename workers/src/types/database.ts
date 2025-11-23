@@ -92,3 +92,12 @@ export interface StructuredFeedbackItem {
   category: string;
   feedback: string;
 }
+
+/**
+ * Waitlist entry
+ */
+export interface WaitlistEntry {
+  id: string; // UUID
+  email: string;
+  created_at: string; // ISO timestamp
+}
