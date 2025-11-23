@@ -85,6 +85,9 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
     // Return analysis response
     const response: AnalyzeSessionResponse = {
       session_id: sessionId,
+      role_title: session.role_title,
+      company_name: session.company_name,
+      created_at: session.created_at,
       metrics: {
         score_overall: analysis.score_overall,
         score_bullshit: analysis.score_bullshit,
@@ -112,21 +115,37 @@ export async function getSessionResults(c: Context<{ Bindings: Env }>): Promise<
     // Get session_id from URL params
     const sessionId = c.req.param('session_id');
 
-    // Query analysis from database
+    // Query analysis AND session data from database
     const supabase = getSupabaseClient(c.env);
-    const { data: analysis, error } = await supabase
+
+    // Fetch session data
+    const { data: session, error: sessionError } = await supabase
+      .from('interview_sessions')
+      .select('role_title, company_name, created_at')
+      .eq('id', sessionId)
+      .single<Pick<InterviewSession, 'role_title' | 'company_name' | 'created_at'>>();
+
+    if (sessionError) {
+      console.error('Error fetching session:', sessionError);
+    }
+
+    // Fetch analysis data
+    const { data: analysis, error: analysisError } = await supabase
       .from('interview_analyses')
       .select('*')
       .eq('session_id', sessionId)
       .single<InterviewAnalysis>();
 
-    if (error || !analysis) {
+    if (analysisError || !analysis) {
       return notFound('Analysis not found for this session');
     }
 
     // Build response
     const response: AnalyzeSessionResponse = {
       session_id: sessionId,
+      role_title: session?.role_title || 'Position',
+      company_name: session?.company_name || undefined,
+      created_at: session?.created_at || new Date().toISOString(),
       metrics: {
         score_overall: analysis.score_overall || 0,
         score_bullshit: analysis.score_bullshit || 0,

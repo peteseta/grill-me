@@ -231,9 +231,15 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
           </button>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>{interview.position}</h1>
-              <p className="text-[#6B5D4F] mb-1">{interview.company}</p>
-              <p className="text-[#6B5D4F] italic">{formatDate(interview.date)}</p>
+              <h1 className="text-[#2C2416] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+                {sessionData?.role_title || interview.position}
+              </h1>
+              <p className="text-[#6B5D4F] mb-1">
+                {sessionData?.company_name || interview.company}
+              </p>
+              <p className="text-[#6B5D4F] italic">
+                {formatDate(sessionData?.created_at || interview.date)}
+              </p>
             </div>
             <div className="text-right">
               <div className="space-y-2">

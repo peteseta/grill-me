@@ -82,6 +82,9 @@ export interface StructuredFeedbackItem {
 
 export interface AnalyzeSessionResponse {
   session_id: string;
+  role_title: string;
+  company_name?: string;
+  created_at: string;
   metrics: {
     score_overall: number;
     score_bullshit: number;

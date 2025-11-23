@@ -60,6 +60,9 @@ export interface AnalyzeSessionRequest {
 
 export interface AnalyzeSessionResponse {
   session_id: string;
+  role_title: string;
+  company_name?: string;
+  created_at: string;
   metrics: {
     score_overall: number; // 1-10
     score_bullshit: number; // 0-100 (high = bad)
