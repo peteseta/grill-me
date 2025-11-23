@@ -58,9 +58,15 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       const config = await apiClient.getSessionConfig(sessionId);
       setAgentConfig(config);
 
+      // Prevent duplicate connections - cleanup existing conversation before creating new one
+      if (conversationRef.current) {
+        console.log('Cleaning up existing conversation before creating new one');
+        await conversationRef.current.endSession().catch(console.error);
+        conversationRef.current = null;
+      }
+
       // Initialize ElevenLabs Conversation with dynamic variables
       // dynamicVariables is a top-level parameter for personalizing the agent
-        // fixme: conversation is doubled. there are two connections for some reason.
       const conversation = await Conversation.startSession({
         agentId: config.agent_id,
         connectionType: 'websocket',
@@ -125,24 +131,48 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
       return;
     }
 
-    // fixme: immediately after clicking end, it takes a while for the audio to be uploaded and for us to get the transcript etc from ElevenLabs. so at first the /analyze endpoint returns a 204. After a while the audioUrl gets pushed to the database, and then the endpoint is called again this time returning a 200. We need to end the connection to the agent, wait for the database entry to be created, and THEN post the /analyze endpoint.
-
     try {
       // End the ElevenLabs conversation
       await conversationRef.current.endSession();
 
       setInterviewState('processing');
 
-      // Trigger backend analysis
-      await apiClient.analyzeSession(sessionId, {
-        conversation_id: conversationId
-      });
+      // Wait for ElevenLabs to process and make the audio/transcript available
+      // Poll with exponential backoff: 2s, 4s, 6s, 8s, 10s (max 30s total)
+      const maxRetries = 5;
+      const baseDelay = 2000; // 2 seconds
+      let lastError: Error | null = null;
 
-      alert('Interview completed! Check your history for detailed feedback.');
-      onExit();
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Wait before attempting (exponentially increasing delay)
+          const delay = baseDelay * (attempt + 1);
+          console.log(`Waiting ${delay}ms before analysis attempt ${attempt + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          // Trigger backend analysis
+          await apiClient.analyzeSession(sessionId, {
+            conversation_id: conversationId
+          });
+
+          // Success! Exit the retry loop
+          alert('Interview completed! Check your history for detailed feedback.');
+          onExit();
+          return;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error('Failed to analyze interview');
+          console.warn(`Analysis attempt ${attempt + 1}/${maxRetries} failed:`, err);
+
+          // If this was the last attempt, throw the error
+          if (attempt === maxRetries - 1) {
+            throw lastError;
+          }
+          // Otherwise, continue to next retry
+        }
+      }
     } catch (err) {
       console.error('Failed to analyze interview:', err);
-      setError(err instanceof Error ? err.message : 'Failed to analyze interview');
+      setError(err instanceof Error ? err.message : 'Failed to analyze interview. The audio may still be processing - please check your history in a moment.');
       setInterviewState('error');
     }
   };
