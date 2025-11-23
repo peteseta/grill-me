@@ -315,7 +315,7 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   <>
                     <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
                       <Star className="w-6 h-6 text-[#C14B30]" />
-                      <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>
+                      <span className="text-[#C14B30] font-medium">
                         Overall: {Math.round(sessionData.metrics.score_overall * 10)}%
                       </span>
                     </div>
@@ -331,7 +331,7 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                 ) : (
                   <div className="inline-flex items-center gap-3 px-5 py-3 bg-[#C14B30]/10 border-2 border-[#C14B30]/20 rounded-2xl">
                     <Star className="w-6 h-6 text-[#C14B30]" />
-                    <span className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Score: TODO</span>
+                    <span className="text-[#C14B30] font-medium">Score: TODO</span>
                   </div>
                 )}
               </div>
@@ -479,13 +479,13 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                   <button
                     key={index}
                     onClick={() => jumpToTime(timestamp.time)}
-                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all hover:scale-[1.01] hover:shadow-lg ${
+                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all hover:shadow-lg ${
                       timestamp.type === 'excellent'
                         ? 'border-[#5A7C6F]/30 bg-[#5A7C6F]/5 hover:border-[#5A7C6F]/50'
                         : 'border-[#C14B30]/30 bg-[#C14B30]/5 hover:border-[#C14B30]/50'
                     } ${
                       currentTime >= timestamp.time && currentTime < timestamp.time + 30
-                        ? 'ring-2 ring-[#C14B30] scale-[1.01] shadow-lg'
+                        ? 'ring-2 ring-[#C14B30] shadow-lg'
                         : ''
                     }`}
                   >
