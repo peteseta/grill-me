@@ -72,26 +72,7 @@ curl -X POST http://localhost:8787/api/v1/sessions \
 3. Generate 3-5 focus areas with probing questions
 4. Parse response into `AttackPlan` format
 
-**Example prompt**:
-```
-You are an expert technical interviewer. Analyze this resume against this job description.
-
-Resume: [resume text]
-Job Description: [job description]
-Role: [role title]
-
-Identify 3-5 focus areas to probe during the interview. For each:
-1. Topic (e.g., "Mango Project scalability claims")
-2. Context (why this is worth probing)
-3. 2-3 probing questions
-
-Focus on:
-- Vague buzzwords that need clarification
-- Impressive metrics that need validation
-- Critical skills for this role
-
-Return as JSON: { difficulty: "moderate", focus_areas: [...] }
-```
+There is a prompt in /docs/PROMPT_attackplan.md
 
 #### 1.3 Session Creation (`src/routes/sessions.ts`)
 
@@ -191,34 +172,7 @@ Headers: xi-api-key: {ELEVENLABS_API_KEY}
    - Structured feedback with exact quotes
 3. Parse response into `AnalysisResult` format
 
-**Example prompt**:
-```
-Analyze this mock interview transcript.
-
-Transcript: [full transcript]
-Role: [role title]
-Type: [interview type]
-
-Provide:
-1. Scores:
-   - score_overall (1-10)
-   - score_bullshit (0-100, where 100 = maximum buzzword usage)
-   - score_technical (0-100, where 100 = excellent technical depth)
-
-2. Summary feedback (2-3 sentences)
-
-3. Structured feedback: Highlight specific quotes from the candidate's responses
-   For each highlight, provide:
-   - target_message_index (which message in transcript)
-   - exact_quote (exact text to highlight)
-   - type ("positive" | "negative" | "warning")
-   - category (e.g., "buzzword_stuffing", "concrete_metric")
-   - feedback (what was good/bad about this)
-
-Return as JSON.
-```
-
-**Important**: Ensure exact quotes match the transcript text exactly for frontend highlighting.
+There is a prompt in /docs/PROMPT_analysis.md
 
 #### 3.3 Analysis Endpoint (`src/routes/analyze.ts`)
 
