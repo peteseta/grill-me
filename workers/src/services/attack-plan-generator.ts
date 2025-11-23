@@ -96,9 +96,6 @@ function formatParsedResume(resume: ParsedResume): string {
     });
   }
 
-  // Raw text as fallback/additional context
-  formatted += `\nFULL RESUME TEXT:\n${resume.raw_text}`;
-
   return formatted;
 }
 
