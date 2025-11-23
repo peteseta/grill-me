@@ -25,10 +25,11 @@ export function HistoryPage({ onViewInterview }: HistoryPageProps) {
       const userId = getUserId();
       const sessions = await apiClient.listSessions(userId);
 
-      // todo: filter out sessions that aren't completed
+      // Filter out sessions that aren't completed
+      const completedSessions = sessions.filter((session: SessionListItem) => session.status === 'completed');
 
       // Transform API response to Interview format
-      const transformedInterviews: Interview[] = sessions.map((session: SessionListItem) => ({
+      const transformedInterviews: Interview[] = completedSessions.map((session: SessionListItem) => ({
         id: session.session_id,
         date: session.created_at,
         position: session.role_title,
