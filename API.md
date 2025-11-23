@@ -7,16 +7,13 @@ Initializes a new interview session. This triggers the **Resume Parsing** and **
 *   `resume`: File
 *   `job_description_text`: String
 *   `user_id`: UUID
-*   `interview_type`: String
+*   `interview_type`: String (one of "Technical", "Behavioral", "Mixed")
 
 **Response (`201 Created`)**:
 ```json
 {
   "session_id": "sess_12345_uuid",
-  "status": "ready",
-  "role_title": "Product Manager", // Maps to ROLE_TITLE
-  "candidate_name": "Pete",        // Maps to CANDIDATE_NAME
-  "interview_type": "Mixed"        // Maps to INTERVIEW_TYPE
+  "status": "ready"
 }
 ```
 
@@ -102,7 +99,7 @@ Called when the user hits "Pause" and asks for help.
 
 ---
 
-## 4. Post-Interview Analysis (The Core Logic)
+## 4. Post-Interview Analysis
 
 This endpoint performs two tasks:
 1. Fetches the "official" high-quality transcript from ElevenLabs servers using the `conversation_id`.
@@ -180,19 +177,42 @@ This endpoint performs two tasks:
 ## 5. History & Retrieval
 
 ### `GET /api/v1/sessions`
-Returns a list of past interviews for the dashboard.
+
+Retrieves a list of past interview sessions for a specific user. This is used to populate the main dashboard.
+
+*   **Query Parameters:**
+    *   `user_id` (UUID, Required): The ID of the user whose sessions you want to retrieve.
+
+    *Example URL:* `/api/v1/sessions?user_id=123e4567-e89b-12d3-a456-426614174000`
 
 *   **Response (`200 OK`)**:
     ```json
     [
       {
-        "session_id": "sess_123",
+        "session_id": "sess_98765_uuid",
         "created_at": "2023-10-27T10:00:00Z",
         "role_title": "Product Manager",
-        "scores": { "overall": 7, "bs_meter": 65 }
+        "company_name": "Microsoft",
+        "status": "completed", // 'setup', 'completed', 'in_progress'
+        "scores": {
+          "overall": 7,
+          "bullshit_meter": 65
+        }
+      },
+      {
+        "session_id": "sess_54321_uuid",
+        "created_at": "2023-10-26T14:30:00Z",
+        "role_title": "Senior Frontend Dev",
+        "company_name": "Netflix",
+        "status": "setup", // User uploaded resume but hasn't started interview
+        "scores": null
       }
     ]
     ```
+
+*   **Error Responses:**
+    *   `400 Bad Request`: Missing `user_id`.
+    *   `404 Not Found`: User does not exist.
 
 ### `GET /api/v1/sessions/{session_id}/results`
 Retrieves the analysis if the user revisits the page later (caches the result of the `/analyze` endpoint).
