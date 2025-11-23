@@ -22,6 +22,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -65,8 +66,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     setIsWaitlistSubmitting(true);
 
     try {
-      await apiClient.addToWaitlist(waitlistEmail);
+      const response = await apiClient.addToWaitlist(waitlistEmail);
       setWaitlistSuccess(true);
+      setWaitlistPosition(response.position);
       setWaitlistEmail('');
     } catch (err) {
       setWaitlistError(err instanceof Error ? err.message : 'Failed to join waitlist');
@@ -277,8 +279,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               {waitlistSuccess ? (
                 <div className="bg-[#5A7C6F]/10 border-2 border-[#5A7C6F] rounded-2xl p-6 text-center animate-in fade-in duration-500">
                   <CheckCircle2 className="w-12 h-12 text-[#5A7C6F] mx-auto mb-3" />
-                  <p className="text-[#2C2416] mb-1" style={{ fontFamily: 'var(--font-serif)' }}>
-                    You're on the list!
+                  <p className="text-[#2C2416] mb-1 text-2xl" style={{ fontFamily: 'var(--font-serif)' }}>
+                    You are #{waitlistPosition} on the waitlist.
                   </p>
                   <p className="text-[#6B5D4F] text-sm">
                     We'll reach out when it's your turn.
@@ -546,8 +548,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             {waitlistSuccess ? (
               <div className="bg-[#5A7C6F]/10 border-2 border-[#5A7C6F] rounded-2xl p-6 text-center">
                 <CheckCircle2 className="w-12 h-12 text-[#5A7C6F] mx-auto mb-3" />
-                <p className="text-[#2C2416] mb-1" style={{ fontFamily: 'var(--font-serif)' }}>
-                  You're already on the list!
+                <p className="text-[#2C2416] mb-1 text-xl" style={{ fontFamily: 'var(--font-serif)' }}>
+                  You are #{waitlistPosition} on the waitlist.
                 </p>
                 <p className="text-[#6B5D4F] text-sm">
                   We'll be in touch soon.

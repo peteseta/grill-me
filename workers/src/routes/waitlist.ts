@@ -35,29 +35,44 @@ export async function addToWaitlist(c: Context<{ Bindings: Env }>): Promise<Resp
     // Check if email already exists
     const { data: existing } = await supabase
       .from('waitlist')
-      .select('id')
+      .select('id, created_at')
       .eq('email', email)
       .single();
 
     if (existing) {
-      // Email already on waitlist - return success anyway (don't reveal this info)
+      // Email already on waitlist - get their position
+      const { count } = await supabase
+        .from('waitlist')
+        .select('*', { count: 'exact', head: true })
+        .lte('created_at', existing.created_at);
+
       return created({
-        message: 'Successfully added to waitlist! We\'ll be in touch soon.'
+        message: 'Successfully added to waitlist! We\'ll be in touch soon.',
+        position: count || 1
       });
     }
 
     // Insert into waitlist
-    const { error } = await supabase
+    const { data: newEntry, error } = await supabase
       .from('waitlist')
-      .insert([{ email }]);
+      .insert([{ email }])
+      .select('created_at')
+      .single();
 
     if (error) {
       console.error('Waitlist insertion error:', error);
       return badRequest(`Failed to add to waitlist: ${error.message}`);
     }
 
+    // Get the user's position in the waitlist
+    const { count } = await supabase
+      .from('waitlist')
+      .select('*', { count: 'exact', head: true })
+      .lte('created_at', newEntry.created_at);
+
     return created({
-      message: 'Successfully added to waitlist! We\'ll be in touch soon.'
+      message: 'Successfully added to waitlist! We\'ll be in touch soon.',
+      position: count || 1
     });
   } catch (error) {
     console.error('Error adding to waitlist:', error);

@@ -102,6 +102,7 @@ export interface WaitlistRequest {
 
 export interface WaitlistResponse {
   message: string;
+  position: number;
 }
 
 /**
