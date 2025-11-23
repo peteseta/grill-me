@@ -15,14 +15,6 @@ import { success, created, badRequest, notFound } from '../utils/response';
 /**
  * POST /api/v1/sessions
  * Create a new interview session
- *
- * TODO: Implement session creation
- * - Parse multipart/form-data to extract resume file, job_description_text, user_id, interview_type
- * - Validate required fields
- * - Parse resume using resume-parser service
- * - Generate attack plan using attack-plan-generator service
- * - Store session in database with status 'ready'
- * - Return session_id and status
  */
 export async function createSession(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -102,13 +94,6 @@ export async function createSession(c: Context<{ Bindings: Env }>): Promise<Resp
 /**
  * GET /api/v1/sessions?user_id={uuid}
  * List all sessions for a user
- *
- * TODO: Implement session listing
- * - Extract user_id from query parameters
- * - Validate user_id is a valid UUID
- * - Query database for all sessions for this user
- * - Join with interview_analyses to get scores if available
- * - Return array of sessions with basic info and scores
  */
 export async function listSessions(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
