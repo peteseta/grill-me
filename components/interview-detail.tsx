@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, Play, Pause, AlertCircle, CheckCircle, Star, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Interview } from '../App';
 import { apiClient, AnalyzeSessionResponse } from '../lib/api-client';
@@ -74,6 +74,21 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
   const [sessionData, setSessionData] = useState<AnalyzeSessionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Generate stable waveform pattern based on interview ID
+  const waveformHeights = useMemo(() => {
+    // Use interview ID as seed for consistent pattern
+    const seed = interview.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const heights: number[] = [];
+    
+    for (let i = 0; i < 60; i++) {
+      // Seeded pseudo-random using sine function
+      const value = Math.abs(Math.sin(seed + i * 0.5)) * 60 + 20;
+      heights.push(value);
+    }
+    
+    return heights;
+  }, [interview.id]);
 
   // Fetch session results on mount
   useEffect(() => {
@@ -295,12 +310,10 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
               {sessionData?.audio_url && (
                 <>
               {/* Waveform Visualization */}
-              {/* todo: make this actually reflect the waveform of the audio somehow, or just don't change it randomly - it's distracting.*/}
               <div className="relative h-36 bg-[#F5F1E8] rounded-2xl mb-8 flex items-center justify-center px-4 border-2 border-[#2C2416]/5">
                 <div className="flex items-center gap-1 h-full w-full">
-                  {[...Array(60)].map((_, i) => {
+                  {waveformHeights.map((height, i) => {
                     const isActive = (i / 60) * duration <= currentTime;
-                    const height = Math.random() * 60 + 20;
                     return (
                       <div
                         key={i}
