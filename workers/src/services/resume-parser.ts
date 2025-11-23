@@ -11,6 +11,9 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 
+// Configure PDF.js worker for Cloudflare Workers environment
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
 /**
  * Zod schema for structured output from gpt-5-nano
  * Defines the expected parsed resume structure
