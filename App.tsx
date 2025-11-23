@@ -148,7 +148,21 @@ function AppContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {activeTab === 'upload' && <UploadPage onStartInterview={handleStartInterview} />}
         {activeTab === 'history' && <HistoryPage onViewInterview={handleViewInterview} />}
-        {activeTab === 'api-test' && <ApiTestPage />}
+        {activeTab === 'api-test' && (
+          <div>
+            <ApiTestPage />
+            <div className="mt-8 p-6 bg-[#FDFCFA] border-2 border-[#2C2416]/10 rounded-2xl">
+              <h3 className="text-[#2C2416] mb-3" style={{ fontFamily: 'var(--font-serif)' }}>UI Testing</h3>
+              <p className="text-[#6B5D4F] mb-4 text-sm">Test the interview page UI without making API calls or using credits.</p>
+              <button
+                onClick={() => handleStartInterview('demo')}
+                className="px-6 py-3 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all"
+              >
+                Launch Demo Interview
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

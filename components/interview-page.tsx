@@ -11,14 +11,24 @@ interface InterviewPageProps {
 }
 
 export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
-  const [interviewState, setInterviewState] = useState<InterviewState>('loading');
+  // Demo mode - skip API calls if sessionId is 'demo'
+  const isDemoMode = sessionId === 'demo';
+  
+  const [interviewState, setInterviewState] = useState<InterviewState>(isDemoMode ? 'ready' : 'loading');
   const [currentQuestion, _setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [agentConfig, setAgentConfig] = useState<any>(null);
+  const [conversationId, setConversationId] = useState<string | null>(isDemoMode ? 'demo-conversation' : null);
+  const [agentConfig, setAgentConfig] = useState<any>(isDemoMode ? {
+    dynamic_variables: {
+      ROLE_TITLE: 'Senior Software Engineer',
+      COMPANY_NAME: 'TechCorp',
+      INTERVIEW_TYPE: 'Technical Interview',
+      CANDIDATE_NAME: 'Demo User'
+    }
+  } : null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const conversationRef = useRef<Conversation | null>(null);
   const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
@@ -34,6 +44,12 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   ];
 
   useEffect(() => {
+    // Skip initialization in demo mode
+    if (isDemoMode) {
+      console.log('Demo mode active - skipping API initialization');
+      return;
+    }
+
     let cancelled = false;
 
     const initializeInterview = async () => {
@@ -186,6 +202,13 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   };
 
   const endInterviewAndAnalyze = async () => {
+    // Demo mode - just exit
+    if (isDemoMode) {
+      alert('Demo mode: In a real interview, this would analyze your responses and generate feedback.');
+      onExit();
+      return;
+    }
+
     // Prevent double-click
     if (isAnalyzing) {
       console.log('Analysis already in progress, ignoring duplicate click');
@@ -265,6 +288,18 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
   };
 
   const toggleRecording = () => {
+    // Demo mode - simulate recording toggle
+    if (isDemoMode) {
+      if (isRecording) {
+        setIsRecording(false);
+        setInterviewState('processing');
+      } else {
+        setIsRecording(true);
+        setInterviewState('listening');
+      }
+      return;
+    }
+
     if (!conversationRef.current) return;
 
     if (isRecording) {
@@ -376,7 +411,14 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Mock Interview</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Mock Interview</h1>
+                {isDemoMode && (
+                  <span className="px-3 py-1 bg-[#D4845C]/20 text-[#D4845C] text-sm font-medium rounded-lg border border-[#D4845C]/30">
+                    DEMO MODE
+                  </span>
+                )}
+              </div>
               {interviewState !== 'ready' && agentConfig && (
                 <p className="text-[#6B5D4F] mt-1">
                   {agentConfig.dynamic_variables.ROLE_TITLE} at {agentConfig.dynamic_variables.COMPANY_NAME}
