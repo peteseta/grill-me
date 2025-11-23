@@ -1,0 +1,51 @@
+# Cloudflare Worker configuration for Grill Me API
+
+name = "grill-me-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Worker type and configuration
+workers_dev = true
+route = "" # TODO: Add your custom domain route in production
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Development configuration
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
+# Production configuration
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Environment variables (secrets should be set via `wrangler secret put`)
+# Set these via: wrangler secret put SUPABASE_URL
+# Set these via: wrangler secret put SUPABASE_ANON_KEY
+# Set these via: wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# Set these via: wrangler secret put ELEVENLABS_API_KEY
+# Set these via: wrangler secret put ELEVENLABS_AGENT_ID
+# Set these via: wrangler secret put OPENAI_API_KEY (optional)
+# Set these via: wrangler secret put ANTHROPIC_API_KEY (optional)
+# Set these via: wrangler secret put GOOGLE_API_KEY (optional)
+
+# R2 bucket for audio storage (optional)
+# [[r2_buckets]]
+# binding = "AUDIO_BUCKET"
+# bucket_name = "grill-me-audio"
+# preview_bucket_name = "grill-me-audio-preview"
+
+# KV namespace for caching (optional)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
+
+# Limits and configuration
+[limits]
+cpu_ms = 30000 # 30 seconds max CPU time (for LLM calls)
+
+# Observability (optional)
+[observability]
+enabled = true
