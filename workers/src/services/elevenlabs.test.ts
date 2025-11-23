@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchTranscript, fetchAudioUrl } from './elevenlabs';
+import { fetchTranscript, saveAndFetchAudioUrl } from './elevenlabs';
 import { Env } from '../types/env';
 
 const mockConversationId = 'conv-123';
@@ -161,7 +161,7 @@ describe('fetchAudioUrl', () => {
       blob: async () => mockBlob,
     } as Response);
 
-    const result = await fetchAudioUrl(mockConversationId, mockEnv);
+    const result = await saveAndFetchAudioUrl(mockConversationId, mockEnv);
 
     expect(fetch).toHaveBeenCalledWith(
       `https://api.elevenlabs.io/v1/convai/conversations/${mockConversationId}/audio`,
@@ -184,7 +184,7 @@ describe('fetchAudioUrl', () => {
     } as Response);
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const result = await fetchAudioUrl(mockConversationId, mockEnv);
+    const result = await saveAndFetchAudioUrl(mockConversationId, mockEnv);
 
     expect(result).toBeNull();
     expect(consoleErrorSpy).toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('fetchAudioUrl', () => {
     mockUploadResult = { error: { message: 'Upload failed' } };
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const result = await fetchAudioUrl(mockConversationId, mockEnv);
+    const result = await saveAndFetchAudioUrl(mockConversationId, mockEnv);
 
     expect(result).toBeNull();
     expect(consoleErrorSpy).toHaveBeenCalled();
@@ -216,7 +216,7 @@ describe('fetchAudioUrl', () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error('Network error'));
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const result = await fetchAudioUrl(mockConversationId, mockEnv);
+    const result = await saveAndFetchAudioUrl(mockConversationId, mockEnv);
 
     // Network error is caught and null is returned
     expect(result).toBeNull();
@@ -233,7 +233,7 @@ describe('fetchAudioUrl', () => {
       blob: async () => mockBlob,
     } as Response);
 
-    await fetchAudioUrl(mockConversationId, mockEnv);
+    await saveAndFetchAudioUrl(mockConversationId, mockEnv);
 
     expect(mockUploadFn).toHaveBeenCalledWith(
       `conversations/${mockConversationId}.mp3`,

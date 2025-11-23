@@ -67,7 +67,7 @@ export async function fetchTranscript(
  * API endpoint: GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}/audio
  * Headers: xi-api-key: {ELEVENLABS_API_KEY}
  */
-export async function fetchAudioUrl(
+export async function saveAndFetchAudioUrl(
   conversationId: string,
   env: Env
 ): Promise<string | null> {

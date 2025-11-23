@@ -9,7 +9,7 @@ import { Env } from '../types/env';
 import { AnalyzeSessionRequest, AnalyzeSessionResponse } from '../types/api';
 import { InterviewSession, InterviewAnalysis } from '../types/database';
 import { getSupabaseClient } from '../utils/supabase';
-import { fetchTranscript, fetchAudioUrl } from '../services/elevenlabs';
+import { fetchTranscript, saveAndFetchAudioUrl } from '../services/elevenlabs';
 import { analyzeInterview } from '../services/interview-analyzer';
 import { success, badRequest, notFound } from '../utils/response';
 
@@ -44,7 +44,8 @@ export async function analyzeSession(c: Context<{ Bindings: Env }>): Promise<Res
     const transcript = await fetchTranscript(body.conversation_id, c.env);
 
     // Fetch audio URL from ElevenLabs (can just fetch from the supabase???)
-    const audioUrl = await fetchAudioUrl(body.conversation_id, c.env);
+    const audioUrl = await saveAndFetchAudioUrl(body.conversation_id, c.env);
+    console.log("audioUrl: ",  audioUrl);
 
     // Analyze interview
     const analysis = await analyzeInterview({
