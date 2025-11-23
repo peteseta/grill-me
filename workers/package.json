@@ -9,7 +9,12 @@
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "keywords": ["cloudflare", "workers", "interview", "api"],
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "interview",
+    "api"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -17,7 +22,7 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0",
-    "wrangler": "^3.0.0"
+    "wrangler": "^4.50.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
