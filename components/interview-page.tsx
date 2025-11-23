@@ -87,6 +87,7 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
     }
   } : null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{ source: 'agent' | 'user', message: string }>>([]);
   const conversationRef = useRef<Conversation | null>(null);
   const pendingConversationRef = useRef<Promise<Conversation> | null>(null);
   const abortAnalysisRef = useRef<boolean>(false);
@@ -158,6 +159,8 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
           },
           onMessage: ({ message, source }) => {
             console.log(`Message from ${source}:`, message);
+            // Add message to chat history
+            setChatHistory(prev => [...prev, { source: source as 'agent' | 'user', message }]);
             if (source === 'user') {
               setInterviewState('processing');
             }
@@ -514,106 +517,152 @@ export function InterviewPage({ sessionId, onExit }: InterviewPageProps) {
           </div>
         </div>
       ) : (
-        // Interview Active State - Centered Avatar Card
-        <div className="flex flex-col h-[calc(100vh-120px)]">
-          {/* Main Content Area */}
-          <div className="flex-grow flex items-center justify-center px-4">
-            <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-16 max-w-2xl w-full">
-              {/* Timer */}
-              <div className="text-left mb-12">
-                <div className="inline-block px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl text-lg font-medium">
-                  {formatTime(elapsedTime)}
+        // Interview Active State - Two Column Layout
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Left Column - Avatar Card & Controls */}
+            <div className="space-y-6">
+              {/* Avatar Card */}
+              <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-12 flex flex-col items-center justify-center min-h-[500px]">
+                {/* Timer */}
+                <div className="self-start mb-8">
+                  <div className="inline-block px-6 py-3 bg-[#2C2416] text-[#FDFCFA] rounded-xl text-lg font-medium">
+                    {formatTime(elapsedTime)}
+                  </div>
+                </div>
+
+                {/* Centered Avatar and Info */}
+                <div className="text-center flex-grow flex flex-col items-center justify-center">
+                  {/* Avatar Circle */}
+                  <div
+                    className="w-48 h-48 rounded-full mb-6 flex items-center justify-center shadow-2xl"
+                    style={{ backgroundColor: interviewerProfile.color }}
+                  >
+                    <span className="text-[#FDFCFA] text-6xl font-bold" style={{ fontFamily: 'var(--font-serif)' }}>
+                      {interviewerProfile.initials}
+                    </span>
+                  </div>
+
+                  {/* Name */}
+                  <h2 className="text-[#2C2416] mb-2 text-2xl" style={{ fontFamily: 'var(--font-serif)' }}>
+                    {interviewerProfile.name}
+                  </h2>
+
+                  {/* Position */}
+                  <p className="text-[#6B5D4F] text-lg mb-6">
+                    {interviewerProfile.position}
+                  </p>
+
+                  {/* Status Indicator */}
+                  <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 ${
+                    interviewState === 'speaking'
+                      ? 'bg-[#C14B30]/10 border-[#C14B30]/30 text-[#C14B30]'
+                      : interviewState === 'listening'
+                      ? 'bg-[#5A7C6F]/10 border-[#5A7C6F]/30 text-[#5A7C6F]'
+                      : 'bg-[#D4845C]/10 border-[#D4845C]/30 text-[#D4845C]'
+                  }`}>
+                    <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                    <span className="font-medium">
+                      {interviewState === 'speaking' && 'AI is speaking...'}
+                      {interviewState === 'listening' && 'Listening to your response'}
+                      {interviewState === 'processing' && 'Processing your answer...'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Centered Avatar and Info */}
-              <div className="text-center">
-                {/* Avatar Circle */}
-                <div
-                  className="w-64 h-64 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl"
-                  style={{ backgroundColor: interviewerProfile.color }}
-                >
-                  <span className="text-[#FDFCFA] text-7xl font-bold" style={{ fontFamily: 'var(--font-serif)' }}>
-                    {interviewerProfile.initials}
-                  </span>
-                </div>
+              {/* Bottom Control Bar - Sticky */}
+              <div className="sticky bottom-4 bg-[#2C2416] rounded-2xl shadow-2xl border-2 border-[#2C2416]/20">
+                <div className="px-8 py-6">
+                  <div className="flex items-center justify-center gap-6">
+                    {/* Mute Button */}
+                    <button
+                      onClick={toggleMute}
+                      className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
+                        isMuted
+                          ? 'bg-[#C14B30] hover:bg-[#A03D24]'
+                          : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
+                      }`}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? (
+                        <MicOff className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      ) : (
+                        <Mic className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      )}
+                    </button>
 
-                {/* Name */}
-                <h2 className="text-[#2C2416] mb-3 text-3xl" style={{ fontFamily: 'var(--font-serif)' }}>
-                  {interviewerProfile.name}
-                </h2>
+                    {/* Pause Button */}
+                    <button
+                      onClick={togglePause}
+                      className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
+                        isPaused
+                          ? 'bg-[#C14B30] hover:bg-[#A03D24]'
+                          : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
+                      }`}
+                      title={isPaused ? 'Resume' : 'Pause'}
+                    >
+                      {isPaused ? (
+                        <Play className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      ) : (
+                        <Pause className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                      )}
+                    </button>
 
-                {/* Position */}
-                <p className="text-[#6B5D4F] text-xl mb-8">
-                  {interviewerProfile.position}
-                </p>
-
-                {/* Status Indicator */}
-                <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 ${
-                  interviewState === 'speaking'
-                    ? 'bg-[#C14B30]/10 border-[#C14B30]/30 text-[#C14B30]'
-                    : interviewState === 'listening'
-                    ? 'bg-[#5A7C6F]/10 border-[#5A7C6F]/30 text-[#5A7C6F]'
-                    : 'bg-[#D4845C]/10 border-[#D4845C]/30 text-[#D4845C]'
-                }`}>
-                  <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                  <span className="font-medium">
-                    {interviewState === 'speaking' && 'AI is speaking...'}
-                    {interviewState === 'listening' && 'Listening to your response'}
-                    {interviewState === 'processing' && 'Processing your answer...'}
-                  </span>
+                    {/* End Interview Button */}
+                    <button
+                      onClick={endInterviewAndAnalyze}
+                      disabled={isAnalyzing}
+                      className="flex items-center gap-3 px-8 py-5 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <PhoneOff className="w-6 h-6" strokeWidth={2.5} />
+                      <span className="font-medium">End Interview</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Bottom Control Bar */}
-          <div className="bg-[#2C2416] border-t-2 border-[#2C2416]/20">
-            <div className="max-w-4xl mx-auto px-8 py-6">
-              <div className="flex items-center justify-center gap-6">
-                {/* Mute Button */}
-                <button
-                  onClick={toggleMute}
-                  className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
-                    isMuted
-                      ? 'bg-[#C14B30] hover:bg-[#A03D24]'
-                      : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
-                  }`}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? (
-                    <MicOff className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+            {/* Right Column - Conversation History */}
+            <div className="space-y-6">
+              {/* Conversation Card */}
+              <div className="bg-[#FDFCFA] rounded-3xl shadow-xl border-2 border-[#2C2416]/10 p-10 min-h-[600px] flex flex-col">
+                <div className="mb-6">
+                  <h3 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>Conversation</h3>
+                </div>
+
+                {/* Chat History */}
+                <div className="flex-grow space-y-6 mb-8 overflow-y-auto">
+                  {chatHistory.length === 0 ? (
+                    <p className="text-[#6B5D4F] italic">Waiting for conversation to start...</p>
                   ) : (
-                    <Mic className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
+                    chatHistory.map((msg, idx) => (
+                      <div key={idx} className={`${msg.source === 'agent' ? 'bg-[#C14B30]/5 border-[#C14B30]/20' : 'bg-[#5A7C6F]/5 border-[#5A7C6F]/20'} border-2 rounded-2xl p-6`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`text-sm font-medium ${msg.source === 'agent' ? 'text-[#C14B30]' : 'text-[#5A7C6F]'}`}>
+                            {msg.source === 'agent' ? '🤖 Interviewer' : '👤 You'}
+                          </span>
+                        </div>
+                        <p className="text-[#2C2416] leading-relaxed">{msg.message}</p>
+                      </div>
+                    ))
                   )}
-                </button>
+                </div>
 
-                {/* Pause Button */}
-                <button
-                  onClick={togglePause}
-                  className={`p-5 rounded-xl transition-all shadow-lg hover:scale-105 ${
-                    isPaused
-                      ? 'bg-[#C14B30] hover:bg-[#A03D24]'
-                      : 'bg-[#5A7C6F] hover:bg-[#4A6B5E]'
-                  }`}
-                  title={isPaused ? 'Resume' : 'Pause'}
-                >
-                  {isPaused ? (
-                    <Play className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
-                  ) : (
-                    <Pause className="w-6 h-6 text-[#FDFCFA]" strokeWidth={2.5} />
-                  )}
-                </button>
-
-                {/* End Interview Button */}
-                <button
-                  onClick={endInterviewAndAnalyze}
-                  disabled={isAnalyzing}
-                  className="flex items-center gap-3 px-8 py-5 bg-[#C14B30] text-[#FDFCFA] rounded-xl hover:bg-[#A03D24] transition-all shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <PhoneOff className="w-6 h-6" strokeWidth={2.5} />
-                  <span className="font-medium">End Interview</span>
-                </button>
+                {/* Interview Tips */}
+                <div className="bg-[#5A7C6F]/5 border-2 border-[#5A7C6F]/20 rounded-2xl p-6">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-[#5A7C6F] flex-shrink-0 mt-1" />
+                    <div>
+                      <h4 className="text-[#2C2416] mb-2">💡 Tips</h4>
+                      <ul className="text-[#6B5D4F] leading-relaxed space-y-2">
+                        <li>• Answer naturally and take your time</li>
+                        <li>• Use specific examples from your experience</li>
+                        <li>• Ask for clarification if you need it</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
