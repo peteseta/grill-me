@@ -356,6 +356,43 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
+      {/* Demo Video Section */}
+      <section className="py-24 bg-[#F5F1E8]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2
+              className="text-[#2C2416] mb-4 text-4xl sm:text-5xl"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              See It In Action
+            </h2>
+            <p className="text-[#6B5D4F] max-w-2xl mx-auto text-lg">
+              Watch how GrillMe AI helps you practice and improve your interview skills
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <div className="relative bg-[#FDFCFA] rounded-3xl border border-[#2C2416]/10 shadow-lg overflow-hidden group">
+              <video
+                className="w-full h-auto transition-transform duration-300 group-hover:scale-[1.02]"
+                controls
+                preload="metadata"
+                style={{ maxHeight: '600px' }}
+              >
+                <source
+                  src="https://veboghiivxrnxttrbibk.supabase.co/storage/v1/object/public/assets/demo.mp4"
+                  type="video/mp4"
+                />
+                Your browser does not support the video tag.
+              </video>
+
+              {/* Subtle gradient overlay for enhanced visual appeal */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#2C2416]/5 via-transparent to-transparent pointer-events-none opacity-30"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-24">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
