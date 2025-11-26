@@ -235,12 +235,18 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
   };
 
   // Transform structured feedback into timestamps
-  const timestamps: Timestamp[] = sessionData?.structured_feedback.map((feedback) => ({
-    time: feedback.target_message_index * 30, // Approximate: assuming 30 seconds per message
-    type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
-    title: feedback.category,
-    description: feedback.feedback,
-  })) || [];
+  const timestamps: Timestamp[] = sessionData?.structured_feedback.map((feedback) => {
+    // Look up the actual timestamp from the transcript using the target_message_index
+    const transcriptMessage = sessionData.full_transcript_json[feedback.target_message_index];
+    const actualTimestamp = transcriptMessage?.timestamp || 0;
+
+    return {
+      time: actualTimestamp,
+      type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
+      title: feedback.category,
+      description: feedback.feedback,
+    };
+  }) || [];
 
   const blunders = timestamps.filter(t => t.type === 'blunder'); // Includes 'warning' and 'negative'
   const excellentMoments = timestamps.filter(t => t.type === 'excellent'); // Only 'positive'
