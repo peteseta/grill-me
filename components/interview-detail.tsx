@@ -226,24 +226,46 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
+  const formatCategory = (category: string) => {
+    // Convert snake_case to Title Case
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   // Transform structured feedback into timestamps
-  const timestamps: Timestamp[] = sessionData?.structured_feedback.map((feedback) => ({
-    time: feedback.target_message_index * 30, // Approximate: assuming 30 seconds per message
-    type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
-    title: feedback.category,
-    description: feedback.feedback,
-  })) || [];
+  const timestamps: Timestamp[] = sessionData?.structured_feedback.map((feedback) => {
+    // Look up the actual timestamp from the transcript using the target_message_index
+    const transcriptMessage = sessionData.full_transcript_json[feedback.target_message_index];
+    const actualTimestamp = transcriptMessage?.timestamp || 0;
+
+    return {
+      time: actualTimestamp,
+      type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
+      title: formatCategory(feedback.category),
+      description: feedback.feedback,
+    };
+  }) || [];
 
   const blunders = timestamps.filter(t => t.type === 'blunder'); // Includes 'warning' and 'negative'
   const excellentMoments = timestamps.filter(t => t.type === 'excellent'); // Only 'positive'
+
+  // Find the currently active timestamp (the most recent one that has been passed)
+  const sortedTimestamps = [...timestamps].sort((a, b) => a.time - b.time);
+  const activeTimestampIndex = sortedTimestamps.findIndex((ts, idx) => {
+    const nextTimestamp = sortedTimestamps[idx + 1];
+    const endTime = nextTimestamp ? nextTimestamp.time : ts.time + 10; // 10 second window if no next timestamp
+    return currentTime >= ts.time && currentTime < endTime;
+  });
 
   // Display loading state
   if (isLoading) {
@@ -479,7 +501,12 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                     <p>No feedback moments available yet.</p>
                   </div>
                 ) : (
-                  timestamps.map((timestamp, index) => (
+                  timestamps.map((timestamp, index) => {
+                    // Check if this is the currently active timestamp
+                    const isActive = activeTimestampIndex !== -1 &&
+                      sortedTimestamps[activeTimestampIndex] === timestamp;
+
+                    return (
                   <button
                     key={index}
                     onClick={() => jumpToTime(timestamp.time)}
@@ -488,7 +515,7 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                         ? 'border-[#5A7C6F]/30 bg-[#5A7C6F]/5 hover:border-[#5A7C6F]/50'
                         : 'border-[#C14B30]/30 bg-[#C14B30]/5 hover:border-[#C14B30]/50'
                     } ${
-                      currentTime >= timestamp.time && currentTime < timestamp.time + 30
+                      isActive
                         ? 'ring-2 ring-[#C14B30] shadow-lg'
                         : ''
                     }`}
@@ -526,7 +553,8 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
                       </div>
                     </div>
                   </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
