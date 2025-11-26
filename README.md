@@ -87,8 +87,6 @@ Color-coded moments in your interview:
 
 *Coming soon - demo video showcasing the full interview flow*
 
-**Live at:** [grillme.ai](https://grillme.ai) *(currently in closed beta)*
-
 ---
 
 ## Tech Stack
@@ -412,6 +410,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built by the GrillMe team**
 
-[Website](https://grillme.ai) · [Report Bug](https://github.com/peteseta/grill-me/issues) · [Request Feature](https://github.com/peteseta/grill-me/issues)
+[Report Bug](https://github.com/peteseta/grill-me/issues) · [Request Feature](https://github.com/peteseta/grill-me/issues)
 
 </div>
