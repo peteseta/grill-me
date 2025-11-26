@@ -226,12 +226,20 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
     });
+  };
+
+  const formatCategory = (category: string) => {
+    // Convert snake_case to Title Case
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   // Transform structured feedback into timestamps
@@ -243,7 +251,7 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
     return {
       time: actualTimestamp,
       type: feedback.type === 'positive' ? 'excellent' as const : 'blunder' as const,
-      title: feedback.category,
+      title: formatCategory(feedback.category),
       description: feedback.feedback,
     };
   }) || [];
