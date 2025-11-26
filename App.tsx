@@ -85,7 +85,7 @@ function AppContent() {
                 <Mic className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>MockInterview AI</h1>
+                <h1 className="text-[#2C2416]" style={{ fontFamily: 'var(--font-serif)' }}>GrillMe AI</h1>
                 <p className="text-[#6B5D4F] text-sm">Practice interviews with AI-powered feedback</p>
               </div>
             </div>
