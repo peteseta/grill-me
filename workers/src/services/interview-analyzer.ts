@@ -40,7 +40,7 @@ const AnalysisResultSchema = z.object({
   score_overall: z.number().min(1).max(10).describe('Overall interview performance score from 1-10'),
   score_bullshit: z.number().min(0).max(100).describe('Buzzword/vagueness score 0-100, higher means more BS'),
   score_technical: z.number().min(0).max(100).describe('Technical depth score 0-100, higher means better technical understanding'),
-  summary_feedback: z.string().describe('Overall performance summary and key improvement areas'),
+  summary_feedback: z.string().describe('Overall performance summary and key improvement areas in markdown format. Use proper paragraphs with blank lines between sections for readability. Include clear section headings and well-spaced content.'),
   structured_feedback: z.array(StructuredFeedbackItemSchema).describe('Array of specific annotations highlighting good and bad parts of responses'),
 });
 
@@ -157,6 +157,13 @@ Scoring Guidelines:
 - **score_overall (0-100):** Overall interview performance
 - **score_bullshit (0-100):** Higher means more buzzwords/vagueness/BS
 - **score_technical (0-100):** Higher means better technical depth and accuracy
+
+Summary Feedback Formatting:
+- Write the summary_feedback in well-formatted markdown
+- Use clear section headings (e.g., ## Strengths, ## Areas for Improvement)
+- Add blank lines between paragraphs for readability
+- Use bullet points or numbered lists where appropriate
+- Make it visually easy to read and scan
 
 Input Transcript:
 ${formattedTranscript}

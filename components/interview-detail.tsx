@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, Play, Pause, AlertCircle, CheckCircle, Star, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { Interview } from '../App';
 import { apiClient, AnalyzeSessionResponse } from '../lib/api-client';
+import ReactMarkdown from 'react-markdown';
 
 interface Timestamp {
   time: number;
@@ -332,7 +333,6 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
               </p>
             </div>
             <div className="text-right">
-              {/* todo: Improve UI/layout for score bubbles - current design doesn't look good */}
               <div className="space-y-3 flex flex-col items-end">
                 {sessionData?.metrics ? (
                   <>
@@ -566,9 +566,9 @@ export function InterviewDetail({ interview, onClose }: InterviewDetailProps) {
           <h2 className="text-[#2C2416] mb-8" style={{ fontFamily: 'var(--font-serif)' }}>Overall Feedback</h2>
           {sessionData?.summary_feedback ? (
             <div className="bg-[#F5F1E8] rounded-2xl p-8 border-2 border-[#2C2416]/10">
-              <p className="text-[#2C2416] leading-relaxed whitespace-pre-wrap">
-                {sessionData.summary_feedback}
-              </p>
+              <div className="text-[#2C2416] leading-relaxed prose prose-slate max-w-none prose-headings:font-serif prose-headings:text-[#2C2416] prose-strong:text-[#2C2416] prose-strong:font-semibold">
+                <ReactMarkdown>{sessionData.summary_feedback}</ReactMarkdown>
+              </div>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-10">
