@@ -372,22 +372,17 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <div className="relative bg-[#FDFCFA] rounded-3xl border border-[#2C2416]/10 shadow-lg overflow-hidden group">
-              <video
-                className="w-full h-auto transition-transform duration-300 group-hover:scale-[1.02]"
-                controls
-                preload="metadata"
-                style={{ maxHeight: '600px' }}
-              >
-                <source
-                  src="https://veboghiivxrnxttrbibk.supabase.co/storage/v1/object/public/assets/demo.mp4"
-                  type="video/mp4"
-                />
-                Your browser does not support the video tag.
-              </video>
-
-              {/* Subtle gradient overlay for enhanced visual appeal */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#2C2416]/5 via-transparent to-transparent pointer-events-none opacity-30"></div>
+            <div className="relative bg-[#FDFCFA] rounded-3xl border border-[#2C2416]/10 shadow-lg overflow-hidden">
+              <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src="https://www.youtube.com/embed/aZkZlwb3r1w?start=144"
+                  title="GrillMe AI Demo"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
             </div>
           </div>
         </div>
