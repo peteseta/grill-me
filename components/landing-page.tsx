@@ -326,14 +326,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-[#2C2416]/10">
                 <div className="flex items-center justify-center mb-2">
                   <Users className="w-5 h-5 text-[#C14B30] mr-2" />
-                  <div className="text-[#2C2416]">10K+</div>
+                  <div className="text-[#2C2416]">223</div>
                 </div>
                 <div className="text-[#6B5D4F]">Active Users</div>
               </div>
               <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-[#2C2416]/10">
                 <div className="flex items-center justify-center mb-2">
                   <Mic className="w-5 h-5 text-[#C14B30] mr-2" />
-                  <div className="text-[#2C2416]">50K+</div>
+                  <div className="text-[#2C2416]">386</div>
                 </div>
                 <div className="text-[#6B5D4F]">Interviews Done</div>
               </div>
