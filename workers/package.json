@@ -23,7 +23,7 @@
     "tsx": "^4.20.6",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0",
-    "wrangler": "^4.50.0"
+    "wrangler": "^4.59.1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
