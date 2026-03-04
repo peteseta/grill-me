@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "hono": "^4.0.0",
+    "hono": "^4.12.4",
     "mammoth": "^1.8.0",
     "openai": "^6.9.1",
     "unpdf": "^1.4.0",
