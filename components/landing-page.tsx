@@ -376,7 +376,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <div className="relative" style={{ paddingBottom: '56.25%' }}>
                 <iframe
                   className="absolute top-0 left-0 w-full h-full"
-                  src="https://www.youtube.com/watch?v=aZkZlwb3r1w&t=144s"
+                  src="https://www.youtube.com/embed/aZkZlwb3r1w?start=144"
                   title="GrillMe AI Demo"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
